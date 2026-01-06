@@ -1,0 +1,5 @@
+.idea/
+*.pyc
+tests/
+aifactory/libs/log/logs/
+*.zip

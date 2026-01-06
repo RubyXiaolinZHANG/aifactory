@@ -1,0 +1,88 @@
+task: &task F3_AINR
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260105
+# path: !join [*save_root, "/train"]
+device: cuda
+workers: 0
+
+model:
+  name: &model_name Unet
+
+database:
+  train:
+    vimeo:
+      name: vimeo
+      enable: true
+      path: F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+      batch_size: 16
+      shuffle: false
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+        cam: O2S
+        frame_num: 7
+    control:
+      name: control
+      enable: false
+      batch_size: 4
+  eval:
+    vimeo:
+      name: vimeo
+      enable: true
+      batch_size: 16
+      shuffle: false
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+        cam: O2S
+        frame_num: 7
+
+    control:
+      name: control
+      enable: false
+      batch_size: 4
+  test:
+    o2s:
+      name: o2s
+      enable: true
+      path:
+        - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/
+    control:
+      name: control
+      enable: false
+
+train:
+  iters: 50000
+  ckpt:
+  path:  !join_path [*save_root, "train"]
+  optimizer:
+    name: AdamW
+    params:
+      lr: 0.001
+      betas:
+        - 0.9
+        - 0.999
+      eps: 1e-08
+      weight_decay: 0.01
+      amsgrad: false
+  intervals:
+    log: 10
+    save: 100
+
+eval:
+  ckpt:
+  path:  !join_path [*save_root, "eval"]
+  metrics:
+
+infer:
+  ckpt:
+  path:  !join_path [*save_root, "infer"]
+
+log:
+  project_name: *task
+  experiment_name: *model_name
+  config:
+  log_dir: !join_path [*save_root, "log"]
+  use_trackio: false
+  space_id:
