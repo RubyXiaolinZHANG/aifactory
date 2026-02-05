@@ -1,8 +1,8 @@
 import os
 import numpy as np
-from aifactory.utilts.save_files import save_as_image
+from aifactory.utils.save_files import save_as_image
 
-TURN_ON_DEBUG = True
+TURN_ON_DEBUG = False
 
 
 def inverse_gamma(x, gamma=2.2):
@@ -57,7 +57,7 @@ def channel2space(bayer):
     return raw
 
 
-def bgr2raw(bgr, cam):
+def bgr2raw(bgr, cam, return_normalized_bgr=False):
     # normalize to [0, 1]
     norm_bgr = bgr.astype(np.float32) / 255
     if TURN_ON_DEBUG:
@@ -98,4 +98,7 @@ def bgr2raw(bgr, cam):
         save_as_image(channel2space(norm_raw), os.path.join("./_debug/test_images",
                                                 "5_bayer_[{:.2f}, {:.2f}].png".format(norm_raw.min(),
                                                                                      norm_raw.max())))
-    return  np.round(channel2space(norm_raw) * cam.maximum)
+    if return_normalized_bgr:
+        return channel2space(norm_raw)
+    else:
+        return  np.round(channel2space(norm_raw) * cam.maximum)

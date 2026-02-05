@@ -1,15 +1,30 @@
 import torch
-from aifactory.libs.log.log import ExperimentLogger
+import builtins
+from torchinfo import summary
+from aifactory.libs.log.log import ExperimentLogger, TqdmLog
 
 
 class ModelOperator:
     _model = None
+    _model_inputs = None
+    _model_input_shapes = None
     _ckpt = None
+    _model_info = None
+    _log = None
+    _verbose = 0
+    _dtype = None
 
-    def __init__(self, model, ckpt=None, device=torch.device("cpu")):
+    def __init__(self, model, model_inputs=None, model_input_shapes=None,
+                 ckpt=None, device=torch.device("cpu"), dtype=torch.float32, log=None):
         self._model = model.to(device)
+        if dtype == torch.float16:
+            self._model = self._model.half().to(device)
+        self._model_inputs = list(model_inputs.values()) if isinstance(model_inputs,dict) else model_inputs
+        self._model_input_shapes = list(model_input_shapes.values()) if isinstance(model_input_shapes,dict) else model_input_shapes
         self._ckpt = ckpt
         self._device = device
+        self._log = log
+        self._device = dtype
 
     @property
     def model(self):
@@ -19,9 +34,42 @@ class ModelOperator:
     def device(self):
         return self._device
 
+    @property
+    def dtype(self):
+        return self._dtype
+
+    def model_info(self, verbose=0):
+        if verbose != self._verbose:
+            self._verbose = verbose
+            self._model_info = None
+
+        if self._model_info is None:
+            if verbose > 0 and isinstance(self._log, ExperimentLogger):
+                org_print = print
+                self._log.raw_log_enable()
+                builtins.print = self._log.info
+            self._model_info = summary(self._model,
+                                       input_size=self._model_input_shapes,
+                                       input_data=self._model_inputs,
+                                       verbose=verbose)
+            if verbose > 0 and isinstance(self._log, ExperimentLogger):
+                self._log.info("\n", raw=True)
+                self._log.raw_log_disable()
+                builtins.print = org_print
+        else:
+            self._log.info("\n", raw=True)
+            self._log.info(self._model_info, raw=True)
+        return self._model_info
+
     def load_ckpt(self):
         if self._ckpt is not None:
             pass
+
+    def set_log(self, log):
+        self._log = log
+
+    def remove_log(self, log):
+        self._log = None
 
 
 class PipelineOperator:
@@ -30,21 +78,30 @@ class PipelineOperator:
     _model_operator = None
     _model = None
     _log = None
+    _dtype = None
+    _save_path = None
 
     # update by iteration
     _datas = None
     _inputs = None
-    _outputs = None
     _results = None
+    _outputs = None
 
     def __init__(self, model,
                  ckpt=None,
                  dataloaders=None,
                  device=torch.device("cpu"),
-                 log=None):
+                 log=None,
+                 **kwargs):
+        self._dtype = kwargs.get("dtype", torch.float32)
+        self._save_path = kwargs.get("save_path", "./")
         self.init_log(log)
         self._device = device
-        self.init_model(model, ckpt, device)
+        self.init_model(model,
+                        model_inputs=kwargs.get("model_inputs", None),
+                        model_input_shapes=kwargs.get("model_input_shapes", None),
+                        ckpt=ckpt,
+                        device=device)
         self.init_dataloaders(dataloaders)
 
     @property
@@ -52,27 +109,55 @@ class PipelineOperator:
         return self._device
 
     @property
+    def dtype(self):
+        return self._dtype
+
+    @property
     def model(self):
         return self._model
 
-    def init_log(self, log):
-        if log is None:
-            self._log = print
-        else:
-            self._log = ExperimentLogger(**log)
-
-    def init_model(self, model, ckpt, device):
+    def init_model(self, model, model_inputs, model_input_shapes, ckpt, device, verbose=0):
         assert isinstance(model, torch.nn.Module)
-        self._model_operator = ModelOperator(model, ckpt, device)
+        self._model_operator = ModelOperator(model,
+                                             model_inputs=model_inputs,
+                                             model_input_shapes=model_input_shapes,
+                                             ckpt=ckpt,
+                                             device=device,
+                                             log=self._log)
         self._model = self._model_operator.model
+        self._model_operator.model_info(verbose)
+        if ckpt is not None:
+            self.ensemble_model_parameters(ckpt)
+        else:
+            message = "model is not initialized in Pipeline"
+            print(message) if self._log is None else self._log.warning(message)
+
+    def set_model(self, model):
+        assert isinstance(model, torch.nn.Module)
+        self._model = model
+
+    def ensemble_model_parameters(self, ckpt):
+        weights = torch.load(ckpt, weights_only=-True)
+        if "model" in weights:
+            weights = weights["model"]
+        self._model.load_state_dict(weights)
+        message = "Loading weights succeeded from: {}".format(ckpt)
+        print(message) if self._log is None else self._log.info(message)
 
     def init_dataloaders(self, dataloaders):
+
+        def apply_log_to_dataset(_dataloader):
+            if self._log is not None and hasattr(_dataloader.dataset, "set_log"):
+                _dataloader.dataset.set_log(self._log)
+
         if dataloaders is None:
             return
         assert isinstance(dataloaders, (torch.utils.data.DataLoader,
                                         list,
                                         dict))
+
         if isinstance(dataloaders, torch.utils.data.DataLoader):
+            apply_log_to_dataset(dataloaders)
             self._dataloaders = {dataloaders.dataset.__class__.__name__: {'id': 0,
                                                                           "dataloader": dataloaders,
                                                                           "iter": iter(dataloaders)}
@@ -82,6 +167,7 @@ class PipelineOperator:
                 assert isinstance(dataloader, torch.utils.data.DataLoader)
                 if self._dataloaders is None:
                     self._dataloaders = {}
+                apply_log_to_dataset(dataloader)
                 self._dataloaders[dataloader.dataset.__class__.__name__] = {'id': db_id,
                                                                             "dataloader": dataloader,
                                                                             "iter": iter(dataloader)}
@@ -90,6 +176,7 @@ class PipelineOperator:
                 assert isinstance(dataloader, torch.utils.data.DataLoader)
                 if self._dataloaders is None:
                     self._dataloaders = {}
+                apply_log_to_dataset(dataloader)
                 self._dataloaders[name] = {'id': db_id,
                                            "dataloader": dataloader,
                                            "iter": iter(dataloader)
@@ -98,14 +185,51 @@ class PipelineOperator:
             raise ValueError("Do not support dataloader type: {}".format(type(dataloaders)))
         assert self._dataloaders is not None and len(self._dataloaders) > 0
 
+    def close_dataloaders(self):
+        if self._dataloaders is None:
+            return
+        for name, dataset in self._dataloaders.items():
+            if hasattr(dataset["dataloader"].dataset, "finish"):
+                dataset["dataloader"].dataset.finish()
 
+    def init_log(self, log):
+        if log is None:
+            self._log = TqdmLog()
+        else:
+            self._log = ExperimentLogger(**log)
+
+    def set_log(self, log):
+        assert isinstance(log, TqdmLog) or isinstance(log, ExperimentLogger)
+        self._log = log
+
+    def remove_log(self):
+        if isinstance(self._log, ExperimentLogger):
+            self._log.finish()
+        else:
+            self._log = None
+
+    def sync_log(self, log):
+        self._log = log
+        self._model_operator._log = log
 
     def __call__(self, *args, **kwargs):
-        self.get_data()
-        self.parse_data()
-        self.preprocess()
-        self.run()
-        self.postprocess()
+        # some log and tasks i
+        self.start()
+        result = self.run(*args, **kwargs)
+        self.finish()
+        return result
+
+    def start(self):
+        if self._model is not None:
+            assert isinstance(self._model, torch.nn.Module)
+            self._model_operator.model_info(verbose=2)
+
+    def run(self, *args, **kwargs):
+        pass
+
+    def finish(self):
+        self.close_dataloaders()
+        self.remove_log()
 
     def get_data(self):
         self._datas = None
@@ -116,19 +240,27 @@ class PipelineOperator:
                 dataset['iter'] = iter(dataset["dataloader"])
                 data = next(dataset['iter'])
             assert data is not None
-            if datas is None:
-                datas = {}
-            datas[name] = data
+            if self._datas is None:
+                self._datas = {}
+            self._datas[name] = data
         return self._datas
 
-    def parse_data(self):
-        return self._datas
-
-    def preprocess(self):
-        return self._inputs
-
-    def run(self):
+    def model_infer(self):
+        if isinstance(self._inputs, torch.Tensor):
+            self._outputs = self._model(self._inputs)
+        elif isinstance(self._inputs, (tuple, list)):
+            self._outputs = self._model(*self._inputs)
+        elif isinstance(self._inputs, dict):
+            self._outputs = self._model(**self._inputs)
+        else:
+            raise ValueError("Do not support inputs type of {}".format(type(self._inputs)))
         return self._outputs
 
+    def parse_data(self):
+        pass
+
+    def preprocess(self):
+        pass
+
     def postprocess(self):
-        return self._results
+        pass

@@ -2,7 +2,6 @@ import numpy as np
 
 __all__ = ["CAMERAS"]
 
-
 BLACK_LEVELS_BY_BITS = {10: 64,
                         11: 128,
                         12: 256,
@@ -15,7 +14,7 @@ BLACK_LEVELS_BY_BITS = {10: 64,
 
 def noise_model(gain, _K_P0_, _K_P1_, _B_P0_, _B_P1_, _B_P2_):
     shot = _K_P0_ * gain + _K_P1_
-    read =  _B_P0_ * (gain ** 2) + _B_P1_ * gain + _B_P2_
+    read = _B_P0_ * (gain ** 2) + _B_P1_ * gain + _B_P2_
     return shot, read
 
 
@@ -27,7 +26,6 @@ def softmax(x):
     max_x = np.max(x, axis=-1, keepdims=True)
     exp_x = np.exp(x - max_x)
     return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
-
 
 
 class IspParameters:
@@ -48,11 +46,11 @@ class IspParameters:
     _black_level = None
     _analog_gain = None
     _d_gain = None
+    _drc_gain = None
     _r_gain = None
     _g_gain = None
     _b_gain = None
     _ccm = None
-
 
     @property
     def sensor(self):
@@ -132,8 +130,11 @@ class IspParameters:
             params[p[1:]] = getattr(self, p)
         return params
 
-class O2S(IspParameters):
+    def parse_meta(self, meta):
+        pass
 
+
+class O2S(IspParameters):
     # data control
     _min_ios = 40
     _max_ios = 3201
@@ -141,6 +142,8 @@ class O2S(IspParameters):
     _d_gain_scale = 0.17
     _d_gain_min = 1.0
     _d_gain_max = 8.0
+    _default_ccm = np.array([[1.7079, -0.6175, -0.0904], [-0.4142, 1.6893, -0.2751], [-0.2399, -0.9428, 2.1827]],
+                            dtype=np.float32)
 
     def __init__(self):
         self._sensor = 'O2S_main_OV50H'
@@ -191,16 +194,17 @@ class O2S(IspParameters):
         return np.random.randint(self._min_ios, self._max_ios)
 
     def get_digital_gain(self):
-        return  np.clip(1.0 / np.random.normal(loc=self._d_gain_center, scale=self._d_gain_scale),
-                        self._d_gain_min, self._d_gain_max)
+        return np.clip(1.0 / np.random.normal(loc=self._d_gain_center, scale=self._d_gain_scale),
+                       self._d_gain_min, self._d_gain_max)
 
-    def get_tuning_parameters(self):
-        self._iso = self.get_ios()
+    def get_tuning_parameters(self, iso=None):
+        self._iso = self.get_ios() if iso is None else iso
         self._analog_gain = ios2gain(self._iso)
         self._d_gain = self.get_digital_gain()
         self._r_gain, self._g_gain, self._b_gain = self.get_awb()
         self._ccm = np.eye(3)
         self._shot, self._read = self.get_noise(self._analog_gain)
+        self._drc_gain = 1.0
 
     def clean_tuning_parameters(self):
         self._iso = None
@@ -210,6 +214,31 @@ class O2S(IspParameters):
         self._g_gain = None
         self._b_gain = None
         self._ccm = None
+
+    def parse_meta(self, meta):
+        shot, read = self.get_noise(meta['exposure_metadata']['analog_gain'])
+
+        raw_info = {"src": meta,
+                    "cam": self.__class__.__name__,
+                    "height": meta['frame_format']['resolution']['height'],
+                    "width": meta['frame_format']['resolution']['width'],
+                    'bayer_pattern': meta['frame_format']['cfa_pattern'].lower(),
+                    "bits": meta["frame_format"]["bit_depth"],
+                    "maximum": (1 << meta["frame_format"]["bit_depth"]) - 1,
+                    "black_level": self._black_level << (meta["frame_format"]["bit_depth"] - self._bits),
+                    "analog_gain": meta['exposure_metadata']['analog_gain'],
+                    "d_gain": meta['exposure_metadata']['digital_gain'],
+                    "drc_gain": meta['device_metadata']['DrcGain'],
+                    "r_gain": meta['device_metadata']['gain_r'],
+                    "g_gain": meta['device_metadata']['gain_g'],
+                    "b_gain": meta['device_metadata']['gain_b'],
+                    "ccm": np.array([[1.7079, -0.6175, -0.0904],
+                                     [-0.4142, 1.6893, -0.2751],
+                                     [-0.2399, -0.9428, 2.1827]],
+                                    dtype=np.float32),
+                    "read": read * (1 << (meta["frame_format"]["bit_depth"] - self._bits) * 2),
+                    "shot": shot * (1 << (meta["frame_format"]["bit_depth"] - self._bits))}
+        return raw_info
 
 
 CAMERAS = {"O2S": O2S}

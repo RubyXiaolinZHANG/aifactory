@@ -1,15 +1,15 @@
 import os
 import argparse
 from ruamel.yaml import YAML
-from aifactory.utilts.get_files import get_target_files
-from aifactory.utilts.random import split_dict_randomly
+from aifactory.utils.get_files import get_target_files
+from aifactory.utils.random import split_dict_randomly
 
 
 def parse_arg():
     parser = argparse.ArgumentParser()
     parser.add_argument("--database",
                         type=str,
-                        default='F:/database/vimeo_png/sequences/00001',
+                        default='F:/database/vimeo_png/sequences',
                         help="path to database")
     parser.add_argument("--save_to",
                         type=str,
@@ -45,13 +45,19 @@ def main(arguments):
                                    "files":[file]}
     print("vimeo sample num: {}".format(len(vimeo)))
 
-    vimeo_train, vimeo_validate = split_dict_randomly(vimeo, ratio=0.8, seed=123)
-    vimeo_train = {k: vimeo_train[k] for k in sorted(vimeo_train)}
-    vimeo_validate = {k: vimeo_validate[k] for k in sorted(vimeo_validate)}
-
     yaml = YAML()
     yaml.indent(mapping=2, sequence=4, offset=2)
     yaml.preserve_quotes = True
+    file_path = os.path.join(arguments.save_to, "vimeo-{}.yaml".format(len(vimeo))).replace("\\", "/")
+    print("dump database to: {}".format(file_path))
+    with open(file_path, 'w', encoding='utf-8') as f:
+        yaml.dump(vimeo, f)
+
+    exit()
+
+    vimeo_train, vimeo_validate = split_dict_randomly(vimeo, ratio=0.99, seed=123)
+    vimeo_train = {k: vimeo_train[k] for k in sorted(vimeo_train)}
+    vimeo_validate = {k: vimeo_validate[k] for k in sorted(vimeo_validate)}
 
     # save vimeo trainset
     for name, data in zip(["train", "val"],[vimeo_train, vimeo_validate]):

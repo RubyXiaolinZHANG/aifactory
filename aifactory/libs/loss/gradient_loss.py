@@ -2,7 +2,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from aifactory.libs.nn.functionals import robust_atan2
+from aifactory.libs.nn.modules import SafeGradientMagnitude
 
 class GradientMagnitudePhaseLoss(nn.Module):
     """
@@ -20,7 +21,6 @@ class GradientMagnitudePhaseLoss(nn.Module):
         super().__init__()
         self.magnitude_weight = magnitude_weight
         self.phase_weight = phase_weight
-
         # Using Sobel operator for gradient computation (more accurate)
         self.sobel_kernel_x = torch.tensor([[-1., 0., 1.],
                                             [-2., 0., 2.],
@@ -28,6 +28,7 @@ class GradientMagnitudePhaseLoss(nn.Module):
         self.sobel_kernel_y = torch.tensor([[-1., -2., -1.],
                                             [0., 0., 0.],
                                             [1., 2., 1.]]).view(1, 1, 3, 3) / 4
+        self._magnitude_calculator = SafeGradientMagnitude(eps=1e-8, clip_value=1e6)
 
     def get_gradient(self, img):
         """Computes the gradient magnitude and phase (direction) of an image."""
@@ -41,10 +42,11 @@ class GradientMagnitudePhaseLoss(nn.Module):
         grad_y = F.conv2d(img, kernel_y, padding=1, groups=img.shape[1])
 
         # Compute gradient magnitude: sqrt(gx^2 + gy^2)
-        magnitude = torch.sqrt(grad_x.pow(2) + grad_y.pow(2))
+        # magnitude = torch.sqrt(grad_x.pow(2) + grad_y.pow(2))
+        magnitude = self._magnitude_calculator(grad_x, grad_y)
 
         # Compute gradient phase (direction): arctan(gy / gx), result in [-pi, pi]
-        phase = torch.atan2(grad_y, grad_x)
+        phase = robust_atan2(grad_y, grad_x)
 
         return magnitude, phase, grad_x, grad_y
 
@@ -83,9 +85,11 @@ class GradientMagnitudePhaseLoss(nn.Module):
 
         # Return total loss and its components (for monitoring)
         loss_dict = {
-            'total_grad_loss': total_loss.item(),
-            'magnitude_loss': mag_loss.item(),
-            'phase_loss': phase_loss.item()
+            'total': total_loss.item(),
+            'magnitude': {"value": mag_loss.item(),
+                          "weight": self.magnitude_weight},
+            'phase': {"value": phase_loss.item(),
+                      "weight": self.phase_weight}
         }
 
         return total_loss, loss_dict
@@ -100,7 +104,7 @@ if __name__ == "__main__":
     height, width = 256, 256
     gray_1 = np.random.randint(0, 256, 3).astype(np.uint8)
     gray_2 = np.random.randint(0, 256, 3).astype(np.uint8)
-    target = get_stripe_image(height, width, 15,gray_1=gray_1,gray_2=gray_2)
+    target = get_stripe_image(height, width, 15, gray_1=gray_1, gray_2=gray_2)
     noise = np.random.normal(0, 80, target.shape)
     pred = np.clip(target + noise, 0, 255).astype(np.uint8)
 
@@ -115,8 +119,9 @@ if __name__ == "__main__":
     criterion_grad = GradientMagnitudePhaseLoss(magnitude_weight=1.0, phase_weight=0.3)
 
     # Compute loss
-    total_loss, loss_breakdown = criterion_grad(torch.from_numpy(pred).unsqueeze(dim=0).permute(0,3,1,2).to(torch.float32),
-                                                torch.from_numpy(target).unsqueeze(dim=0).permute(0,3,1,2).to(torch.float32))
+    total_loss, loss_breakdown = criterion_grad(
+        torch.from_numpy(pred).unsqueeze(dim=0).permute(0, 3, 1, 2).to(torch.float32),
+        torch.from_numpy(target).unsqueeze(dim=0).permute(0, 3, 1, 2).to(torch.float32))
     print("Total gradient loss: {:.4f}".format(total_loss))
     print("Magnitude loss: {:.4f}".format(loss_breakdown['magnitude_loss']))
     print("Phase loss: {:.4f}".format(loss_breakdown['phase_loss']))

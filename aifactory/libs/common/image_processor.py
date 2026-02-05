@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 
-def enhanced_edge_detection(gray_img, threshold=30, min_area=20, min_size=10, remove_boundary=0):
+def enhanced_edge_detection(gray_img, threshold=30, min_area=20, min_size=10, remove_boundary=0, edge_val=1):
     """
     enhanced edge detection
     """
@@ -62,9 +62,9 @@ def enhanced_edge_detection(gray_img, threshold=30, min_area=20, min_size=10, re
     analysis_report.sort(key=lambda x: x['area'], reverse=True)
     filtered_regions = [r for r in analysis_report if
                         (r['area'] >= min_area and (r['bbox'][2] > min_size or r['bbox'][3] > min_size))]
-    valid_edges = np.zeros(labels.shape, dtype=np.uint8)
+    valid_edges = np.zeros(labels.shape, dtype=np.float32)
     for region in filtered_regions:
-        valid_edges[labels == region['label']] = 255
+        valid_edges[labels == region['label']] = edge_val
 
     return valid_edges
 

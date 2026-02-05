@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from ruamel.yaml import YAML
+from ruamel.yaml import YAML, nodes
 from pathlib import Path
 import json
 import numpy as np
@@ -39,12 +39,22 @@ def join_path_constructor(loader, node):
     # return os.path.join(*[str(item) for item in seq])
 
 
+def joint_string_constructor(loader, node):
+    # process list
+    if isinstance(node, nodes.SequenceNode):
+        sequence = loader.construct_sequence(node)
+        return ''.join(str(item) for item in sequence)
+    # process scalar
+    else:
+        return str(loader.construct_scalar(node))
+
 def load_file_yaml(file):
     check_file(file)
     with open(file, "r", encoding="utf-8") as file:
         yaml = YAML(typ='safe')
         yaml.allow_duplicate_keys = False
         yaml.Constructor.add_constructor('!join_path', join_path_constructor)
+        yaml.Constructor.add_constructor('!join_string', joint_string_constructor)
         data = yaml.load(file)
     return data
 

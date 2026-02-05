@@ -1,5 +1,5 @@
 from copy import deepcopy
-from aifactory.utilts.save_files import save_dict2yaml
+from aifactory.utils.save_files import save_dict2yaml
 
 # Dataset
 dataset_vimeo = {"name": "vimeo",

@@ -1,12 +1,12 @@
-task: &task F3_AINR
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260126
+task: &task F3_AINR_EXAMPLE_CROP
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/example_20260204_ImCrop
 # path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
 dtype: torch.float32
 
 model:
-  name: &model_name AinrUnet
+  name: &model_name example
   input_shapes:
     present: [1, 1, 3008, 4000]
     previous: [1, 1, 3008, 4000]
@@ -16,13 +16,17 @@ database:
     vimeo:
       name: vimeo
       enable: true
-      batch_size: 16
+      batch_size: 8
       shuffle: true
       dataset: DatasetVimeo2Raw
       parameters:
         paths:
           - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
         cam: O2S
+        cvt_bits: 16
+        crop:
+          height: 256
+          width: 256
         frame_num: 7
         # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
     control:
@@ -41,6 +45,7 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
+        cvt_bits: 16
         frame_num: 3
         iso: 800
         fix_sequence: true
@@ -55,6 +60,7 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
+        cvt_bits: 16
         frame_num: 3
         iso: 1600
         fix_sequence: true
@@ -69,6 +75,7 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
+        cvt_bits: 16
         frame_num: 3
         iso: 3200
         fix_sequence: true
@@ -79,18 +86,26 @@ database:
   test:
     o2s:
       name: o2s
+      cam: O2S
       enable: true
-      path:
-        - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/
+      frame_num: 5
+      database_loader: read_raw_from_folders
+      parameters:
+        paths:
+          - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N10103_250414_01_O2S_OVX9100_Portrait
+          # - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N20103_250414_01_O2S_OVX9100_Portrait
+
     control:
       name: control
       enable: false
+      frame_num: 5
+      database_loader: generate_control_scene_raw
 
 train:
   iters: 100000  # 00
-  ckpt:
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
   path:  !join_path [*save_root, "train"]
-  evaluate_before_train: false
+  evaluate_before_train: true
   losses:
     mse:
       enable: true
@@ -131,7 +146,7 @@ train:
     gradient:
       enable: true
       at_iter:
-        start: 30000
+        start: # 1000
         end:
       weight: 1.0
       params:
@@ -140,7 +155,7 @@ train:
   optimizer:
     name: AdamW
     params:
-      lr: 0.001
+      lr: 0.0001
       betas:
         - 0.9
         - 0.999
@@ -153,11 +168,12 @@ train:
   vis:
     enable: true
     save2local: true
+    save2db: false
     sample_per_db: 4
     frames: 3
 
 eval:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/20260123/train/ckpt/AinrUnet_00015400.pth
+  ckpt:
   path:  !join_path [*save_root, "eval"]
   metrics:
     psnr:
@@ -178,10 +194,13 @@ eval:
   vis:
     enable: true
     save2local: true
+    save2db: false
+    save_ratio: 0.1
 
 infer:
-  ckpt:
-  path:  !join_path [*save_root, "infer"]
+  # ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
+  ckpt: 'D:/Program/ToGit/xiaomi/mict/model_zoo/ainr_ly/models/pos/original_reluout_float.pth'
+  path:  !join_path [*save_root, "baseline"]
 
 log:
   project_name: *task

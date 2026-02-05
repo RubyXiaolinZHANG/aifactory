@@ -1,6 +1,6 @@
 from aifactory.libs.common.image import RawInfo
 from aifactory.libs.common.roi import PQROI
-from  aifactory.utilts.load_file import load_file_raw
+from  aifactory.utils.load_file import load_file_raw
 
 
 def raw_eval(frame_info):

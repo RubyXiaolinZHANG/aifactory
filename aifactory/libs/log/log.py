@@ -11,8 +11,24 @@ from matplotlib import pyplot as plt
 import trackio
 from loguru import logger
 from tqdm import tqdm
+from aifactory.utils.yaml_printer import YAMLTreePrinter
 
-class TqdmLog:
+
+class MyLog:
+
+    _raw_log = False
+
+    def set_raw_log(self, enable):
+        self._raw_log = enable
+
+    def raw_log_enable(self):
+        self._raw_log = True
+
+    def raw_log_disable(self):
+        self._raw_log = False
+
+
+class TqdmLog(MyLog):
 
     def __init__(self):
         pass
@@ -20,7 +36,11 @@ class TqdmLog:
     def info(self, message):
         tqdm.write(message)
 
-class ExperimentLogger:
+    def warning(self, message):
+        self.info(message)
+
+
+class ExperimentLogger(MyLog):
     """
     A logger that encapsulates Loguru (for operational logs) and TrackIO (for experiment metrics).
     Suitable for standardized logging in AI model training, compression, pruning, and other experiments.
@@ -32,7 +52,8 @@ class ExperimentLogger:
                  config: Dict[str, Any],
                  log_dir: str = "./logs",
                  use_trackio: bool = True,
-                 space_id: str | None = None):
+                 space_id: str | None = None,
+                 resume: str = "never"):
         """
         Initializes the experiment logger.
 
@@ -59,6 +80,8 @@ class ExperimentLogger:
         self.trackio_exp = None
         if use_trackio:
             try:
+                if resume == "never":
+                    experiment_name = "{}_{}".format(experiment_name, datetime.now().strftime('%Y%m%d_%H%M'))
                 self.trackio_exp = trackio.init(
                     project=project_name,
                     name=experiment_name,
@@ -72,6 +95,17 @@ class ExperimentLogger:
                 self.use_trackio = False
         else:
             logger.warning("TrackIO is disabled. Only operational logs will be recorded.")
+
+        # 3. print config
+        self.info("{}\n".format("=" * 100), raw=True)
+        self.info("{}\n".format("CONFIG"), raw=True)
+        self.info("{}\n".format("=" * 100), raw=True)
+        yaml_printer = YAMLTreePrinter(self.config, self)
+        yaml_printer.print_tree()
+        self.info("\n", raw=True)
+        self.info("{}\n".format("=" * 100), raw=True)
+        self.info("{}\n".format("CONFIG END!"), raw=True)
+        self.info("{}\n".format("=" * 100), raw=True)
 
     def _setup_loguru(self, log_dir: str):
         """Configures Loguru to output to console and file."""
@@ -106,9 +140,14 @@ class ExperimentLogger:
         logger.debug(f"Current epoch set to: {epoch}")
 
     # ==================== Operational Logging Methods (Loguru) ====================
-    def info(self, message: str):
+    def info(self, message: str, raw=None):
         """Logs a general informational message."""
-        logger.info(message)
+        if raw is None:
+            raw = self._raw_log
+        if raw:
+            logger.opt(raw=True).info(message)
+        else:
+            logger.info(message)
 
     def debug(self, message: str):
         """Logs a debug message."""
@@ -148,7 +187,7 @@ class ExperimentLogger:
         except Exception as e:
             logger.error(f"Error logging metrics to TrackIO: {e}")
 
-    def log_image(self, image, caption="", step=None):
+    def log_image(self, image, caption="", step=None, tag="image"):
         """
         Log an image to Trackio.
         Args:
@@ -159,10 +198,10 @@ class ExperimentLogger:
         # Wrap the image into a wandb.Image object
         trackio_image = trackio.Image(image, caption=caption)
         # Log to Trackio
-        self.trackio_exp.log({f"images/{caption}": trackio_image}, step=step)
+        self.trackio_exp.log({f"{tag}/{caption}": trackio_image}, step=step)
         self.debug(f"Image logged: {caption}")
 
-    def log_multiple_images(self, images_dict, step=None, caption_prefix=""):
+    def log_multiple_images(self, images_dict, caption_prefix="", step=None, tag="batch"):
         """
         在单一步骤中记录多张图像到Trackio。
         Args:
@@ -175,13 +214,13 @@ class ExperimentLogger:
         for key, image_data in images_dict.items():
             caption = f"{caption_prefix}_{key}" if caption_prefix else key
             # 包装为 wandb.Image
-            logged_images[f"batch/{key}"] = trackio.Image(image_data, caption=caption)
+            logged_images[f"{tag}/{key}"] = trackio.Image(image_data, caption=caption)
 
         # 一次调用记录所有图像
         self.trackio_exp.log(logged_images, step=step)
         self.debug(f"Multiple images logged at step {step}: {list(images_dict.keys())}")
 
-    def log_image_sequence(self, image_data, key="sequence/sample", step=None, caption=""):
+    def log_image_sequence(self, images, key, caption_prefix="", step=None):
         """
         在不同步骤中，用相同的键记录图像以形成序列。
         Args:
@@ -190,8 +229,15 @@ class ExperimentLogger:
             step (int): 必须提供，代表序列中的时间步。
             caption (str): 图像标题。
         """
-        wandb_image = trackio.Image(image_data, caption=caption)
-        self.trackio_exp.log({key: wandb_image}, step=step)
+        if isinstance(images, list):
+            for image_id, image in enumerate(images):
+                wandb_image = trackio.Image(image, caption="{}{}".format(caption_prefix, "_{}".format(image_id)))
+                self.trackio_exp.log({key: wandb_image}, step=image_id if step is None else step + image_id)
+        elif isinstance(images, dict):
+            for image_id, (image_name, image) in enumerate(images.items()):
+                wandb_image = trackio.Image(image, caption="{}{}".format(caption_prefix,image_name))
+                self.trackio_exp.log({key: wandb_image}, step=image_id if step is None else step + image_id)
+
         self.debug(f"Image added to sequence '{key}' at step {step}")
 
     def log_heatmap(self, matrix, caption="Heatmap", xlabel="", ylabel="", step=None):
@@ -281,14 +327,14 @@ def main():
     }
 
     exp_logger = ExperimentLogger(project_name="ai_factory",
-                 experiment_name="test_log_epoch-15",
+                 experiment_name="test_log_epoch-5",
                  config=experiment_config,
                  log_dir="./logs",
                  use_trackio=True,
                  space_id=None)
     exp_logger.info("start testing ExperimentLogger")
     # 3. 开始你的训练/压缩流程
-    total_epochs = 15
+    total_epochs = 5
     exp_logger.info("=" * 50)
     exp_logger.info("start to simulate a training process")
     exp_logger.info("=" * 50)
@@ -326,7 +372,13 @@ def main():
             step=epoch,  # 变化的步数
             caption=f"Epoch {epoch}"
         )
-
+        feature_map = np.zeros((224, 224, 3), dtype=np.uint8) + 100
+        exp_logger.log_image_sequence(
+            image_data=feature_map,
+            key=f"features/sample_{sample_idx + 1}",  # 固定键名
+            step=epoch,  # 变化的步数
+            caption=f"Epoch {epoch}"
+        )
 
         attention_weights = np.random.rand(3, 20, 30)
         for i in range(attention_weights.shape[0]):
@@ -359,5 +411,108 @@ def main():
     # ... (你的模型保存代码)
     exp_logger.finish()
 
+
+def test_save_frames():
+    from aifactory.utils.get_files import get_target_files
+    import cv2
+    import os
+    src_dir = "F:/database/vimeo_png/sequences/00001"
+    exp_logger = ExperimentLogger(project_name="ai_factory",
+                                  experiment_name="test_log_frames",
+                                  config={},
+                                  log_dir="./logs",
+                                  use_trackio=True,
+                                  space_id=None)
+    folders = os.listdir(src_dir)
+    count = 0
+    for folder in folders:
+        full_path = os.path.join(src_dir, folder)
+        if not(os.path.isdir(full_path)):
+            continue
+        files = get_target_files(full_path, suffix=".png")
+        for file_id, file in enumerate(files):
+            cv_image = cv2.imread(file)
+            exp_logger.log_image(cv_image, caption="sample/00001/{}".format(folder), step=file_id)
+        count += 1
+        if count == 5:
+            break
+
+    exp_logger.info("Test image log finished.")
+    exp_logger.finish()
+    return
+
+
+def test_save_muli_frames():
+    from aifactory.utils.get_files import get_target_files
+    import cv2
+    import os
+    src_dir = "F:/database/vimeo_png/sequences/00001"
+    exp_logger = ExperimentLogger(project_name="ai_factory",
+                                  experiment_name="test_log_frames",
+                                  config={},
+                                  log_dir="./logs",
+                                  use_trackio=True,
+                                  space_id=None)
+    folders = os.listdir(src_dir)
+    count = 0
+    for folder in folders:
+        full_path = os.path.join(src_dir, folder)
+        if not(os.path.isdir(full_path)):
+            continue
+        files = get_target_files(full_path, suffix=".png")
+        image_dict = {}
+        for file_id, file in enumerate(files):
+            cv_image = cv2.imread(file)
+            image_dict[os.path.basename(file)] = cv_image
+        exp_logger.log_multiple_images(image_dict,
+                                       caption_prefix="sample/00001/{}".format(folder),
+                                       step=count,
+                                       tag="vimeo")
+        count += 1
+        if count == 5:
+            break
+
+    exp_logger.info("Test image log finished.")
+    exp_logger.finish()
+    return
+
+
+def test_save_frame_sequence():
+    from aifactory.utils.get_files import get_target_files
+    import cv2
+    import os
+    src_dir = "F:/database/vimeo_png/sequences/00001"
+    exp_logger = ExperimentLogger(project_name="ai_factory",
+                                  experiment_name="test_log_frames",
+                                  config={},
+                                  log_dir="./logs",
+                                  use_trackio=True,
+                                  space_id=None)
+    folders = os.listdir(src_dir)
+    count = 0
+    for folder in folders:
+        full_path = os.path.join(src_dir, folder)
+        if not(os.path.isdir(full_path)):
+            continue
+        files = get_target_files(full_path, suffix=".png")
+        image_dict = {}
+        for file_id, file in enumerate(files):
+            cv_image = cv2.imread(file)
+            image_dict[os.path.basename(file)] = cv_image
+        exp_logger.log_image_sequence(image_dict,
+                                       key="train/vimeo/00001/{}".format(folder))
+        count += 1
+        if count == 5:
+            break
+
+    exp_logger.info("Test image log finished.")
+    exp_logger.finish()
+    return
+
+
+
 if __name__ == "__main__":
-    main()
+    # main()
+    # test_save_frames()
+    # test_save_muli_frames()
+    test_save_frame_sequence()

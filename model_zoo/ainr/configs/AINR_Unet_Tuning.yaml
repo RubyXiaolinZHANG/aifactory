@@ -1,5 +1,5 @@
-task: &task F3_AINR
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260126
+task: &task F3_AINR_Unet
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260128
 # path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
@@ -10,6 +10,46 @@ model:
   input_shapes:
     present: [1, 1, 3008, 4000]
     previous: [1, 1, 3008, 4000]
+  parameters:
+    arch:
+      adaptor:
+        input_channels:
+          - 8
+      encoder_stage_0:
+        input_channels:
+          - 16
+          - 16
+      encoder_stage_1:
+        input_channels:
+          - 32
+          - 32
+      encoder_stage_2:
+        input_channels:
+          - 64
+          - 64
+      mid_layer:
+        input_channels:
+          - 128
+      decoder_stage_3:
+        input_channels:
+          - 128
+          - 128
+      decoder_stage_2:
+        input_channels:
+          - 192
+          - 192
+      decoder_stage_1:
+        input_channels:
+          - 128
+          - 128
+      decoder_stage_0:
+        input_channels:
+          - 96
+          - 64
+    activation:
+      func: torch.relu
+      params:
+
 
 database:
   train:
@@ -153,6 +193,7 @@ train:
   vis:
     enable: true
     save2local: true
+    save2db: false
     sample_per_db: 4
     frames: 3
 
@@ -178,6 +219,7 @@ eval:
   vis:
     enable: true
     save2local: true
+    save2db: false
 
 infer:
   ckpt:

@@ -3,7 +3,11 @@ import numpy as np
 import cv2
 from pathlib import Path
 import ruamel.yaml
-from ruamel.yaml.comments import CommentedSeq, CommentedMap
+
+
+def save_image(file_name, bgr):
+    os.makedirs(os.path.dirname(file_name), exist_ok=True)
+    cv2.imwrite(file_name, bgr, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 
 def save_as_image(data, save_file):

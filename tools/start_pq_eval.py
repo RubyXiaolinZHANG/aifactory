@@ -1,7 +1,7 @@
 import os
 import argparse
-from aifactory.utilts.get_files import get_target_files
-from aifactory.utilts.parser import parse_low_level_task_evaluation_files
+from aifactory.utils.get_files import get_target_files
+from aifactory.utils.parser import parse_low_level_task_evaluation_files
 from aifactory.libs.eval.pq_eval import raw_eval
 
 

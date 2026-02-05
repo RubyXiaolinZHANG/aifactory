@@ -1,6 +1,13 @@
 import os
 
 import torch
+DEFAULT_ADAPTOR = {"input_chanels": [8]}
+
+DEFAULT_ENCODER_STAGE_1 = {"input_chanels": [8]}
+
+DEFAULT_ARC = {"ad"}
+
+
 
 class Preprocess(torch.nn.Module):
     def __init__(self):
@@ -10,9 +17,16 @@ class Preprocess(torch.nn.Module):
     def forward(self, present, previous):
         return self.space2depth(torch.concat([present, previous], dim=1))
 
-class UnetBackbone(torch.nn.Module):
-    def __init__(self, ):
-        super(UnetBackbone, self).__init__()
+class UnetBackboneWithParamTuning(torch.nn.Module):
+
+    def __init__(self, base_width=8, stage_x_w=None, stage_x_d=None):
+        super(UnetBackboneWithParamTuning, self).__init__()
+        if stage_x_w is None:
+            stage_x_w = [1,1,1]
+        if stage_x_d is None:
+            stage_x_d = [1,1,1]
+        assert len(stage_x_d) == len(stage_x_w)
+        stage_num = len(stage_x_w)
 
         self.adaptor = torch.nn.Conv2d(in_channels=8, out_channels=8, kernel_size=3, stride=1, padding=1)
 
@@ -86,7 +100,6 @@ class UnetBackbone(torch.nn.Module):
         return features_out
 
 
-
 class Postprocess(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -102,12 +115,12 @@ class Postprocess(torch.nn.Module):
                 "fusion_mask": score}
     
 
-class AinrUnet(torch.nn.Module):
+class AinrUnetWithParamTuning(torch.nn.Module):
 
     def __init__(self):
         super().__init__()
         self.preprocess = Preprocess()
-        self.denoise = UnetBackbone()
+        self.denoise = UnetBackboneWithParamTuning()
         self.postprocess = Postprocess()
 
     def forward(self, present, previous):
@@ -120,20 +133,24 @@ class AinrUnet(torch.nn.Module):
 if __name__ == "__main__":
     from torchinfo import summary
     import onnx
+    from aifactory.utils.load_file import load_file
+    config_file = "D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/AINR_Unet_Tuning.yaml"
+    config = load_file(config_file)
+
     h, w = 1504 * 2, 2000 * 2
     dummy_input = {"present": torch.randn(1, 1, h, w),
                    "previous": torch.randn(1, 1, h, w)}
 
-    model = AinrUnet()
+    model = AinrUnetWithParamTuning()
     summary(model,
             input_data=(list(dummy_input.values())),
             verbose=2)
 
-    onnx_file = './onnx/ainr_unet.onnx'
+    onnx_file = './onnx/ainr_unet_.onnx'
     os.makedirs(os.path.dirname(onnx_file), exist_ok=True)
     torch.onnx.export(model, dummy_input, onnx_file, simplify=True, opset=13)
     onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(onnx_file)), onnx_file)
 
-    onnx_file = './onnx/ainr_unet_backbone.onnx'
+    onnx_file = './onnx/ainr_unet_backbone_.onnx'
     torch.onnx.export(model.denoise, torch.randn(1, 8, h//2, w//2), onnx_file, simplify=True, opset=13)
     onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(onnx_file)), onnx_file)

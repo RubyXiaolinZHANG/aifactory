@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from .image import RawInfo
 from .scaling import normalization
-from aifactory.utilts.superscript_converter import SuperscriptConverter
+from aifactory.utils.superscript_converter import SuperscriptConverter
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt

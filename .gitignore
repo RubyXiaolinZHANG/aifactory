@@ -3,3 +3,8 @@
 tests/
 aifactory/libs/log/logs/
 *.zip
+gen_code/
+model_zoo/ainr/core/ainr_trainer - 副本.py
+model_zoo/ainr/models/onnx/
+model_zoo/ainr/models/unet_org.py
+tools/o2s/
