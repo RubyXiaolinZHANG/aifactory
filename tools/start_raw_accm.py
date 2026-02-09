@@ -1,9 +1,11 @@
 import numpy as np
 from tqdm import tqdm
+import cv2
 from aifactory.utils.get_files import get_target_files
 
 
 src_dir = r"F:\database\AINR_V600\TestData\O2S\normal_video\O2S\raw10\N10103_250414_01_O2S_OVX9100_Portrait"
+src_dir = r"I:\database\AINR\train\train_data1\2\100"
 
 src_fils = get_target_files(src_dir, suffix=".raw")
 im_h = 2560
@@ -16,8 +18,8 @@ for file_id, file in tqdm(enumerate(src_fils)):
         accum_data = data.astype(np.uint64)
     else:
         accum_data += data.astype(np.uint64)
-    if file_id == 1:
+    if file_id == 0:
         break
 
-accum_data = accum_data // 2  # len(src_fils)
-accum_data.astype(np.uint16).tofile("o2s/accum_2.raw")
+accum_data = accum_data // 1  # len(src_fils)
+# accum_data.astype(np.uint16).tofile("o2s/accum_2.raw")

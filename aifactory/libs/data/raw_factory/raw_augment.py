@@ -12,6 +12,6 @@ def add_noise_to_raw(raw, raw_bits, read, shot):
 
     # add noise
     sensor_raw = raw + noise
-    return {"sensor_raw": sensor_raw,
+    return {"sensor_raw": sensor_raw.round(),
             "raw": raw,
-            "noise": noise, }
+            "noise": noise }

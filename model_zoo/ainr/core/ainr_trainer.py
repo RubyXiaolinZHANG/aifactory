@@ -407,8 +407,9 @@ class AinrTrainer(BasicTrainer, AinrInference):
             for sample_id, sample_name in enumerate(data['sample_name']):
                 if sample_id >= vis_sample_num:
                     break
-                key = "train/ITER:{:08d}/S:{:03d}/{}/Gain:{}".format(self._count, sample_id, sample_name,
-                                                                    data['cam']['analog_gain'][sample_id].to(torch.int32))
+                key = "train/ITER:{:08d}/S:{:03d}/{}/AGain:{}/DGain:{}".format(self._count, sample_id, sample_name,
+                                                                    data['cam']['analog_gain'][sample_id].to(torch.int32),
+                                                                    data['cam']['d_gain'][sample_id].round().to(torch.int32))
                 image_names = [os.path.basename(batch_files[sample_id]).split(".")[0] for batch_files in data["files"]]
                 for target_id, target_name in enumerate(target_names):
                     target_key = "{}/{}_{}".format(key, target_id, target_name)
@@ -448,9 +449,9 @@ class AinrTrainer(BasicTrainer, AinrInference):
                                       data['cam']['bits'][sample_id].item(),
                                       data['cam']['bayer_pattern'][sample_id],
                                       data['cam']['black_level'][sample_id].item(),
-                                      (data['cam']['r_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
-                                      (data['cam']['g_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
-                                      (data['cam']['b_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
+                                      (data['cam']['rgb_gain'][sample_id] * data['cam']['r_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
+                                      (data['cam']['rgb_gain'][sample_id] * data['cam']['g_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
+                                      (data['cam']['rgb_gain'][sample_id] * data['cam']['b_gain'][sample_id] * data['cam']['d_gain'][sample_id]).item(),
                                       ccm=data['cam']['ccm'][sample_id].cpu().numpy())
                         frame_names.append(
                             "seq{}_{}".format(frame_id, image_names[data['frame_id'][sample_id, frame_id]]))

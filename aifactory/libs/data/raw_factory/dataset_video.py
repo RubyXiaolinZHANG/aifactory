@@ -1,4 +1,5 @@
 import sys
+
 sys.path.append("../../../../")
 import os.path
 from shutil import copyfile
@@ -10,12 +11,14 @@ from aifactory.utils.load_file import load_file
 from aifactory.libs.common.bgr2raw import bgr2raw
 from aifactory.libs.common.raw2rgb import raw2bgr
 from aifactory.libs.common.image_processor import enhanced_edge_detection
+from aifactory.libs.common.raw2rgb import raw2bgr
 from aifactory.utils.save_files import save_as_image
 from aifactory.utils.seed import set_seed
 # from raw_augment import add_noise_to_raw
 # from camera import IspParameters, CAMERAS
 from .raw_augment import add_noise_to_raw
 from .camera import IspParameters, CAMERAS
+TURN_ON_DEBUG = False
 
 
 class DatasetVimeo2Raw(torch.utils.data.Dataset):
@@ -69,11 +72,11 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
 
         # crop setting
         if isinstance(crop, (tuple, list)):
-            self._crop_area={"height": crop[0],
-                             "width": crop[1]}
+            self._crop_area = {"height": crop[0],
+                               "width": crop[1]}
         elif isinstance(crop, dict):
-            self._crop_area={"height": crop["height"],
-                             "width": crop["width"]}
+            self._crop_area = {"height": crop["height"],
+                               "width": crop["width"]}
         elif crop is None:
             pass
         else:
@@ -89,7 +92,10 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
 
         try:
             frame_ids = self.get_sequence(sample)
-            self._cam.get_tuning_parameters(self._iso)
+            if TURN_ON_DEBUG:
+                self._cam.get_debug_parameters()
+            else:
+                self._cam.get_tuning_parameters(self._iso)
             # self._cam.get_tuning_parameters(100)
             crop_roi = None
             frames = {"sensor_raw": [],
@@ -101,17 +107,19 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
             for frame_id in frame_ids:
                 bgr = cv2.imread(sample['files'][frame_id])
                 assert bgr is not None, "{} is none".format(sample['files'][frame_id])
+
+                # (1) process rgb for randomly cropping roi
                 if self.crop_enable:
                     if crop_roi is None:
                         im_height, im_width, _ = bgr.shape
-                        sc = np.random.randint(0, im_width-self.crop_w + 1)
-                        sr = np.random.randint(0, im_height-self.crop_h + 1)
+                        sc = np.random.randint(0, im_width - self.crop_w + 1)
+                        sr = np.random.randint(0, im_height - self.crop_h + 1)
                         crop_roi = {"x1": sc,
                                     "x2": sc + self.crop_w,
                                     "y1": sr,
                                     "y2": sr + self.crop_h}
                     bgr = bgr[crop_roi["y1"]: crop_roi["y2"], crop_roi["x1"]: crop_roi["x2"]]
-
+                # (2) process rgb for edge mask
                 if self._edge_mask_enable:
                     edge = enhanced_edge_detection(cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY),
                                                    threshold=12, min_area=20, min_size=10,
@@ -121,7 +129,8 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
                 # bgr to raw
                 raw_norm = bgr2raw(bgr, self._cam, return_normalized_bgr=True)
                 raw = np.round(raw_norm * ((1 << self._dst_bits) - 1))
-                sensor_raw = self.add_noise(raw)
+                # sensor_raw = self.add_noise(raw)
+                sensor_raw = self.add_noise_org(raw)
                 frames["sensor_raw"].append(
                     sensor_raw.astype(np.uint16) if self._cam.bits <= 16 else sensor_raw.astype(np.uint32))
                 frames["gt"].append(raw.astype(np.uint16) if self._cam.bits <= 16 else raw.astype(np.uint32))
@@ -197,21 +206,22 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
     def add_noise_org(self, raw):
         bit_shift = self._dst_bits - self._cam.bits
         black_level = self._cam.black_level * (1 << bit_shift)
-        read = self._cam.read  * (1 << bit_shift * 2)
+        read = self._cam.read * (1 << bit_shift * 2)
         shot = self._cam.shot * (1 << bit_shift)
         # sensor_raw = add_noise_to_raw(raw.astype(np.float32) - self._cam.black_level,
         #                               self._cam.bits, self._cam.read, self._cam.shot)
         # return np.clip(sensor_raw["sensor_raw"] + self._cam.black_level, 0, self._cam.maximum).astype(np.uint16)
         sensor_raw = add_noise_to_raw(raw.astype(np.float32) - black_level, self._dst_bits, read, shot)
-        return np.clip(sensor_raw["sensor_raw"] + black_level, 0, (1 << self._dst_bits) - 1).astype(np.uint16)
-
+        return sensor_raw["sensor_raw"].round() + black_level
+        # return np.clip(sensor_raw["sensor_raw"] + black_level, 0, (1 << self._dst_bits) - 1).astype(np.uint16)
 
     def add_noise(self, raw):
         bit_shift = self._dst_bits - self._cam.bits
-        read = self._cam.read  * (1 << bit_shift * 2)
+        read = self._cam.read * (1 << bit_shift * 2)
         shot = self._cam.shot * (1 << bit_shift)
         sensor_raw = add_noise_to_raw(raw.astype(np.float32), self._dst_bits, read, shot)
-        return np.clip(sensor_raw["sensor_raw"], 0, (1 << self._dst_bits) - 1).astype(np.uint16)
+        return sensor_raw[
+            "sensor_raw"]  # np.clip(sensor_raw["sensor_raw"], 0, (1 << self._dst_bits) - 1).astype(np.uint16)
 
     def get_cam_params(self):
         cam = self._cam.get_parameter_dict()
@@ -225,7 +235,6 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
             cam['maximum'] = (1 << self._dst_bits) - 1
 
         return cam
-
 
     @staticmethod
     def save_data(sample, save_dir):
@@ -292,6 +301,17 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
     def remove_bad_data_file(self):
         self._log_file = None
 
+    def raw2bgr(self, raw):
+        bgr = raw2bgr(raw,
+                      self._dst_bits,
+                      self._cam.bayer_pattern,
+                      self._cam.black_level << (self._dst_bits - self._cam.bits),
+                      self._cam.r_gain * self._cam.rgb_gain * self._cam.d_gain,
+                      self._cam.g_gain * self._cam.rgb_gain * self._cam.d_gain,
+                      self._cam.b_gain * self._cam.rgb_gain * self._cam.d_gain,
+                      self._cam.ccm)
+        return bgr
+
 
 def vimeo2raw_dataloader2samples(data):
     # sequence_length = len(data['frames'])
@@ -344,7 +364,7 @@ def test_dataset_vimeo2raw():
     test_sample_num = batch_size * max_iters
 
     dataset = DatasetVimeo2Raw("F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml",
-                               O2S(), frame_num=5)
+                               O2S(), cvt_bits=16, frame_num=1, iso=3200, fix_sequence=True)
     save_dir = "H:/_result/ai_factory/raw_factory/DatasetVimeo2Raw"
     tqdm.write("\n{} test dataset {}\n save to:\t{}".format("*" * 50, "*" * 50, save_dir))
     with tqdm(total=test_sample_num, desc="test dataset") as pbar:
@@ -439,6 +459,6 @@ def check_database():
 
 
 if __name__ == "__main__":
-    # test_dataset_vimeo2raw()
+    test_dataset_vimeo2raw()
     # test_date_iter()
-    check_database()
+    # check_database()

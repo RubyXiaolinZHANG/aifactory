@@ -16,19 +16,22 @@ database:
     vimeo:
       name: vimeo
       enable: true
-      batch_size: 8
-      shuffle: true
+      batch_size: 1
+      shuffle: false
       dataset: DatasetVimeo2Raw
       parameters:
         paths:
-          - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
+          # - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
         cam: O2S
         cvt_bits: 16
-        crop:
-          height: 256
-          width: 256
+        iso: 3200
+#        crop:
+#          height: 256
+#          width: 256
         frame_num: 7
         edge_mask_val: 1.0
+        fix_sequence: true
         # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
     control:
       name: control

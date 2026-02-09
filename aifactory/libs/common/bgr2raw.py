@@ -14,17 +14,17 @@ def inverse_ccm2bgr(x, ccm):
     return np.matmul(x, rgb2cam)
 
 
-def invert_gains(x, d_gain, r_gain, b_gain, inflection=0.9):
+def invert_gains(x, rgb_gain, r_gain, b_gain, inflection=0.9):
     gray = x.mean(axis=-1)
     mask = np.expand_dims((np.clip((gray - inflection), 0.0, None) / (1.0 - inflection)) ** 2.0, axis=-1)
-    gains = np.ones(3) / d_gain
+    gains = np.ones(3) / rgb_gain
     # image patten H * W * BGR
     gains[0] /= b_gain
     gains[-1] /= r_gain
     safe_gains = mask + (1 - mask) * gains
-    safe_gains[:, :, 0][safe_gains[:, :, 0] > gains[0]] = gains[0]
-    safe_gains[:, :, 1][safe_gains[:, :, 1] > gains[1]] = gains[1]
-    safe_gains[:, :, 2][safe_gains[:, :, 2] > gains[2]] = gains[2]
+    safe_gains[:, :, 0][safe_gains[:, :, 0] < gains[0]] = gains[0]
+    safe_gains[:, :, 1][safe_gains[:, :, 1] < gains[1]] = gains[1]
+    safe_gains[:, :, 2][safe_gains[:, :, 2] < gains[2]] = gains[2]
     return x * safe_gains
 
 
@@ -78,7 +78,7 @@ def bgr2raw(bgr, cam, return_normalized_bgr=False):
                                                                                          norm_bgr.max())))
     # inverse gains
     # print("inverse gains: d_gain:{}, r_gain:{}, b_gain:{}".format(cam.d_gain, cam.r_gain, cam.b_gain))
-    norm_bgr = invert_gains(norm_bgr, cam.d_gain, cam.r_gain, cam.b_gain)
+    norm_bgr = np.clip(invert_gains(norm_bgr, cam.rgb_gain, cam.r_gain, cam.b_gain), 0, 1) / cam.d_gain
 
     # scaling down and shift above black level
     black_level_rate = cam.black_level / cam.maximum

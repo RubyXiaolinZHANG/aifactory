@@ -47,6 +47,7 @@ class IspParameters:
     _analog_gain = None
     _d_gain = None
     _drc_gain = None
+    _rgb_gain = None
     _r_gain = None
     _g_gain = None
     _b_gain = None
@@ -103,6 +104,10 @@ class IspParameters:
     @property
     def d_gain(self):
         return self._d_gain
+
+    @property
+    def rgb_gain(self):
+        return self._rgb_gain
 
     @property
     def r_gain(self):
@@ -187,8 +192,8 @@ class O2S(IspParameters):
         awb = awbs[rand_index] * weights[0] + awbs[rand_index + 1] * weights[1]
         r_gain = np.random.normal(loc=awb[0], scale=0.1)
         b_gain = np.random.normal(loc=awb[1], scale=0.1)
-        g_gain = 1.0
-        return max(r_gain, 0.8), g_gain, max(b_gain, 0.8)
+        rgb_gain = 1.0 / np.random.normal(loc=0.8, scale=0.1)
+        return rgb_gain, max(r_gain, 0.8), 1.0, max(b_gain, 0.8)
 
     def get_ios(self):
         return np.random.randint(self._min_ios, self._max_ios)
@@ -197,11 +202,15 @@ class O2S(IspParameters):
         return np.clip(1.0 / np.random.normal(loc=self._d_gain_center, scale=self._d_gain_scale),
                        self._d_gain_min, self._d_gain_max)
 
+    def get_digital_gain_uniform(self):
+        return np.random.uniform(self._d_gain_min, self._d_gain_max)
+
     def get_tuning_parameters(self, iso=None):
         self._iso = self.get_ios() if iso is None else iso
         self._analog_gain = ios2gain(self._iso)
-        self._d_gain = self.get_digital_gain()
-        self._r_gain, self._g_gain, self._b_gain = self.get_awb()
+        # self._d_gain = self.get_digital_gain()
+        self._d_gain = self.get_digital_gain_uniform()
+        self._rgb_gain, self._r_gain, self._g_gain, self._b_gain = self.get_awb()
         self._ccm = np.eye(3)
         self._shot, self._read = self.get_noise(self._analog_gain)
         self._drc_gain = 1.0
@@ -239,6 +248,29 @@ class O2S(IspParameters):
                     "read": read * (1 << (meta["frame_format"]["bit_depth"] - self._bits) * 2),
                     "shot": shot * (1 << (meta["frame_format"]["bit_depth"] - self._bits))}
         return raw_info
+
+    def get_debug_parameters(self):
+        self._bayer_pattern = "RGGB"
+        self._bits = 16
+        self._maximum = (1 << self._bits) - 1
+        self._height = 2560
+        self._width = 4096
+        self._black_level = 1 << self._bits - 4
+
+        self._iso = 3200
+        self._analog_gain = ios2gain(self._iso)
+        self._d_gain = 5.409962514332212
+        self._rgb_gain, self._r_gain, self._g_gain, self._b_gain = 1.1809123169537483, 2.082219694991247, 1.0, 1.5568776428269484
+
+        # rgb2cam = np.array([[0.6495974642653665, 0.284663265463884, 0.06573927027074955],
+        #                     [0.07865048964330222, 0.7736759593699812, 0.14767355098671664],
+        #                     [0.01394249950907048, 0.22661852674159122, 0.7594389737493382]])
+        # cam2rgb = np.linalg.inv(rgb2cam)  # .transpose()
+        self._ccm = np.eye(3)
+        self._shot, self._read = self.get_noise(self._analog_gain)
+        self._shot *= (1 << (self._bits - 10))
+        self._read *= (1 << (self._bits - 10) * 2)
+        self._drc_gain = 1.0
 
 
 CAMERAS = {"O2S": O2S}
