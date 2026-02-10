@@ -10,7 +10,7 @@ import torch
 from tqdm import tqdm
 from aifactory.utils.load_file import load_file
 from aifactory.utils.load_test_database import DATABASE_LOADERS
-from aifactory.libs.data.raw_factory.camera import CAMERAS
+from aifactory.libs.data.camera.camera import CAMERAS
 from aifactory.utils.save_files import save_image
 from core import AinrInference
 from models import MODELS

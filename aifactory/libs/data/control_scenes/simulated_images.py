@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 
 
+SIMULATED_SENSES = ["solid_color", "pure_gray", "stripe", "sin", "edge"]
+
+
 def get_solid_color_image(im_height, im_width):
     rgb = np.random.randint(0, 256, 3).astype(np.uint8)
     image = np.ones((im_height, im_width, 3), dtype=np.uint8)

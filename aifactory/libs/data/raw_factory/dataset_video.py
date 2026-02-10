@@ -8,16 +8,14 @@ import cv2
 import numpy as np
 import torch
 from aifactory.utils.load_file import load_file
-from aifactory.libs.common.bgr2raw import bgr2raw
-from aifactory.libs.common.raw2rgb import raw2bgr
-from aifactory.libs.common.image_processor import enhanced_edge_detection
-from aifactory.libs.common.raw2rgb import raw2bgr
 from aifactory.utils.save_files import save_as_image
 from aifactory.utils.seed import set_seed
-# from raw_augment import add_noise_to_raw
-# from camera import IspParameters, CAMERAS
-from .raw_augment import add_noise_to_raw
-from .camera import IspParameters, CAMERAS
+from aifactory.libs.common.bgr2raw import bgr2raw
+from aifactory.libs.common.image_processor import enhanced_edge_detection
+from aifactory.libs.common.raw2rgb import raw2bgr
+from aifactory.libs.data.augment.raw_augment import add_noise_to_raw
+from aifactory.libs.data.camera.camera import IspParameters, CAMERAS
+
 TURN_ON_DEBUG = False
 
 
@@ -32,6 +30,8 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
     _crop_area = None
     _edge_mask_enable = None
     _edge_mask_val = None
+    _image_height = 256
+    _image_width = 448
 
     def __init__(self, paths, cam, cvt_bits=None, crop=None, frame_num=7, iso=None, edge_mask_val=None,
                  record_bad_data=None, fix_sequence=False,
@@ -107,6 +107,12 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
             for frame_id in frame_ids:
                 bgr = cv2.imread(sample['files'][frame_id])
                 assert bgr is not None, "{} is none".format(sample['files'][frame_id])
+                assert (bgr.shape[0] == self._image_height) and (
+                        bgr.shape[1] == self._image_width), "{} shape error {}, expect ({},{},3)".format(
+                    sample['files'][frame_id],
+                    bgr.shape,
+                    self._image_height,
+                    self._image_width)
 
                 # (1) process rgb for randomly cropping roi
                 if self.crop_enable:
@@ -156,8 +162,12 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
                     bad_samples.append(file)
             self.record(bad_samples)
             item2 = np.random.randint(len(self._dataset))
-            info = "replace the damage sample {} with {}".format(self._samples[item],
-                                                                 self._samples[item2])
+            if bgr is None:
+                info = "replace the damage sample {} with {}".format(self._samples[item],
+                                                                     self._samples[item2])
+            else:
+                info = "{} shape error, replace it with {}".format(self._samples[item],
+                                                                   self._samples[item2])
             if self._log is not None:
                 self._log.warning(info)
             else:
@@ -167,7 +177,7 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
                                        "replacement succeeds!",
                                        "*" * 30)
             if self._log is not None:
-                self._log.warning(info)
+                self._log.error(info)
             else:
                 print(info)
         return sample
@@ -353,9 +363,14 @@ def vimeo2raw_dataloader2samples(data):
     return samples
 
 
+#######################################################################
+##########           the followings are for testing          ##########
+#######################################################################
+
+
 def test_dataset_vimeo2raw():
     from tqdm import tqdm
-    from camera import O2S
+    from aifactory.libs.data.camera.camera import O2S
 
     # setting
     set_seed()
@@ -401,7 +416,7 @@ def test_dataset_vimeo2raw():
 
 
 def test_date_iter():
-    from camera import O2S
+    from aifactory.libs.data.camera.camera import O2S
 
     # setting
     set_seed()
@@ -409,8 +424,8 @@ def test_date_iter():
     # dataset
     data_file = "F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml"
     record_bad_data = data_file.replace(".yaml", "_bad_data.txt")
-    dataset = DatasetVimeo2Raw(data_file,
-                               O2S(), frame_num=7, record_bad_data=record_bad_data)
+    dataset = DatasetVimeo2Raw(data_file, O2S(),
+                               frame_num=7, record_bad_data=record_bad_data, edge_mask_val=255, fix_sequence=True)
     # dataloader
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=0, shuffle=False)
     # data iter
@@ -436,7 +451,7 @@ def test_date_iter():
 
 
 def check_database():
-    from camera import O2S
+    from aifactory.libs.data.camera.camera import O2S
     from tqdm import tqdm
     from aifactory.libs.log import ExperimentLogger
 
@@ -458,7 +473,33 @@ def check_database():
         dataloader.dataset.finish()
 
 
+def replace_data_root(paths, replace_src, replace_dst, save_dir, judge_dst_path_exists=False):
+    from aifactory.utils.save_files import save_dict2yaml
+    if isinstance(paths, str):
+        paths = [paths]
+
+    for id, path in enumerate(paths):
+        print("process database [{}/{}]: {}".format(id, len(paths), path))
+        dataset = load_file(path)
+        for name, data in dataset.items():
+            data['path'] = data['path'].replace(replace_src, replace_dst)
+            if judge_dst_path_exists:
+                assert os.path.exists(data['path'])
+            for i in range(len(data['files'])):
+                data['files'][i] = data['files'][i].replace(replace_src, replace_dst)
+        dst_dataset =  os.path.join(save_dir, os.path.basename(path))
+        save_dict2yaml(dataset, dst_dataset)
+        print("[{}/{}] save database to {}".format(id, len(paths), dst_dataset))
+
+
 if __name__ == "__main__":
-    test_dataset_vimeo2raw()
-    # test_date_iter()
+    # test_dataset_vimeo2raw()
+    test_date_iter()
     # check_database()
+	# replace_data_root(['G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-200.yaml',
+    #                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-523.yaml',
+    #                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_train_sn-51769.yaml',],
+    #                   replace_src="F:/database/vimeo_png/sequences/",
+    #                   replace_dst="G:/database/xiaomi/vimeo_png/sequences/",
+    #                   save_dir = "D:/code/aifactory/model_zoo/ainr/datasetsa",
+    #                   judge_dst_path_exists=True)

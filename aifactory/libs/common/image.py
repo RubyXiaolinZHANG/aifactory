@@ -5,8 +5,8 @@ import numpy as np
 import os
 from .mem_ops import space2depth, crop_image
 from .raw2rgb import raw2bgr
-from .statistics import roughness, histogram
-from aifactory.libs.data.raw_factory.camera import BLACK_LEVELS_BY_BITS
+from .statistics import histogram
+from aifactory.libs.data.camera.camera import BLACK_LEVELS_BY_BITS
 
 
 class ImageInfo:
