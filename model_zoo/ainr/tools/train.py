@@ -19,8 +19,8 @@ def parse_arg():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config",
                         type=str,
-                        # default="../configs/AINR_Unet_Baseline.yaml",
-                        default="../configs/AINR_Dev.yaml",
+                        default="../configs/AINR_Unet_Baseline.yaml",
+                        # default="../configs/AINR_Dev.yaml",
                         help="path to database")
     return parser.parse_args()
 

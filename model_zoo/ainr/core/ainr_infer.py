@@ -162,6 +162,7 @@ class AinrInference(BasicInference):
             bgr_raw = []
             bgr_fusion = []
             bgr_gt = []
+            clear_raw = []
         else:
             bgr_raw = None
             bgr_fusion = None
@@ -232,6 +233,8 @@ class AinrInference(BasicInference):
 
         this_batch_frames["sensor_raw_denoise"] = torch.concat(raw_denoise, dim=0)
         this_batch_frames["sensor_raw_fusion"] = torch.concat(raw_fusion, dim=0)
+        self._results[self._frame_id]["sensor_raw_denoise"] = this_batch_frames["sensor_raw_denoise"].round().to(torch.uint16)
+        self._results[self._frame_id]["sensor_raw_fusion"] = this_batch_frames["sensor_raw_fusion"].round().to(torch.uint16)
         if enable_raw2bgr:
             self._results[self._frame_id]["srgb"] = {"raw": bgr_raw,
                                                      "fusion": bgr_fusion}

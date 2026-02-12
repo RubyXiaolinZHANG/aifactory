@@ -1,5 +1,4 @@
 import sys
-
 sys.path.append("../../../")
 sys.path.append("../")
 
@@ -99,11 +98,15 @@ def main(arguments):
                         meta = load_file(frame_info['meta'])
                         meta = cam.parse_meta(meta)
                         result = infer(raw, meta, work_mode="deploy")
+
                         # save result
+                        save_name = os.path.splitext(os.path.basename(frame_info['raw']))[0]
+                        save_file = os.path.join(sample_dir, "sensor_raw_fusion", "{}.raw".format(save_name))
+                        os.makedirs(os.path.dirname(save_file), exist_ok=True)
+                        result['sensor_raw_fusion'][0].squeeze().cpu().detach().numpy().tofile(save_file)
                         for key, image in result['srgb'].items():
                             if isinstance(image, list):
                                 image = image[0]
-                            save_name = os.path.splitext(os.path.basename(frame_info['raw']))[0]
                             save_image(os.path.join(sample_dir, key, "{}.png".format(save_name)), image)
                     pbar.update(1)
             infer.reset()

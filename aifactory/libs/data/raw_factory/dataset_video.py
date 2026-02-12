@@ -36,15 +36,27 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
     def __init__(self, paths, cam, cvt_bits=None, crop=None, frame_num=7, iso=None, edge_mask_val=None,
                  record_bad_data=None, fix_sequence=False,
                  log=None):
+        self._log = log
         if isinstance(paths, str):
             assert os.path.exists(paths)
+            info = "Loading database: {}".format(paths)
+            if self._log is not None:
+                self._log.info(info)
+            else:
+                print(info)
             self._dataset = load_file(paths)
+            self._log.info("Loading database done!\n")
         else:
             for path in paths:
                 assert os.path.exists(path)
+                info = "Loading database: {}".format(paths)
+                print(info) if self._log is None else self._log.info(info)
                 if self._dataset is None:
                     self._dataset = {}
                 self._dataset.update(load_file(path))
+                info = "Loading database done!\n"
+                print(info) if self._log is None else self._log.info(info)
+
         if isinstance(cam, IspParameters):
             self._cam = cam
         else:
@@ -165,9 +177,13 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
             if bgr is None:
                 info = "replace the damage sample {} with {}".format(self._samples[item],
                                                                      self._samples[item2])
-            else:
+            elif (bgr.shape[0] != self._image_height) or (
+                    bgr.shape[1] != self._image_width):
                 info = "{} shape error, replace it with {}".format(self._samples[item],
                                                                    self._samples[item2])
+            else:
+                info = "unexpected error in {}, replace it with {}".format(self._samples[item],
+                                                                           self._samples[item2])
             if self._log is not None:
                 self._log.warning(info)
             else:
@@ -416,16 +432,24 @@ def test_dataset_vimeo2raw():
 
 
 def test_date_iter():
+    from aifactory.libs.log import ExperimentLogger
     from aifactory.libs.data.camera.camera import O2S
 
     # setting
     set_seed()
     batch_size = 16
     # dataset
-    data_file = "F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml"
+    data_file = "F:/database/vimeo_png/datasets/vimeo_val_sn-10459.yaml"
     record_bad_data = data_file.replace(".yaml", "_bad_data.txt")
+    log = ExperimentLogger(project_name="vimeo_dataset",
+                           experiment_name=os.path.basename(data_file).replace(".yaml", ""),
+                           config={},
+                           log_dir=os.path.dirname(data_file),
+                           use_trackio=True,
+                           space_id=None)
     dataset = DatasetVimeo2Raw(data_file, O2S(),
-                               frame_num=7, record_bad_data=record_bad_data, edge_mask_val=255, fix_sequence=True)
+                               frame_num=7, record_bad_data=record_bad_data,
+                               edge_mask_val=255, fix_sequence=True, log=log)
     # dataloader
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=0, shuffle=False)
     # data iter
@@ -439,6 +463,26 @@ def test_date_iter():
             data = next(data_iter)
             samples += data['sensor_raw'].shape[0]
             print("epoch: {}\ttotal sample: {}\t{}".format(epoch, samples, data['sensor_raw'].shape))
+
+            # raw to rgb
+            '''
+            
+            raw_batch = data['gt']
+            bs, frames, h, w = raw_batch.shape
+            rggb = torch.pixel_unshuffle(raw_batch.reshape(bs*frames, 1, h ,w).to(torch.float32), downscale_factor=2)
+            rggb_x2 = torch.nn.Upsample(scale_factor=2, mode="bilinear")(rggb)
+            rgb = torch.empty((bs*frames, 3, h, w),device=rggb.device, dtype=rggb.dtype)
+            rgb[:, 0, :, :] = rggb_x2[:, 0, :, :]
+            rgb[:, 1, :, :] = (rggb_x2[:, 1, :, :] + rggb_x2[:, 2, :, :]) / 2
+            rgb[:, 2, :, :] = rggb_x2[:, 3, :, :]
+
+            sample = rgb[0].permute(1,2,0)
+            clip_min, clip_max = sample.min(), sample.max()
+            display = ((torch.clip(sample, clip_min, clip_max) - clip_min) / (clip_max - clip_min) * 255).round().to(torch.uint8)
+            cv2.imwrite("demosaic.png", display.numpy())
+            
+            '''
+
         except StopIteration:
             data_iter = iter(dataloader)
             data = next(data_iter)
@@ -455,7 +499,7 @@ def check_database():
     from tqdm import tqdm
     from aifactory.libs.log import ExperimentLogger
 
-    data_file = "F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml"
+    data_file = "F:/database/vimeo_png/datasets/vimeo_val_sn-10459.yaml"
     record_bad_data = data_file.replace(".yaml", "_bad_data.txt")
     log = ExperimentLogger(project_name="vimeo_dataset",
                            experiment_name=os.path.basename(data_file).replace(".yaml", ""),
@@ -465,7 +509,7 @@ def check_database():
                            space_id=None)
 
     dataset = DatasetVimeo2Raw(data_file,
-                               O2S(), frame_num=7, edge_mask_enable=True, record_bad_data=record_bad_data, log=log)
+                               O2S(), frame_num=7, edge_mask_val=255, record_bad_data=record_bad_data, log=log)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=64, num_workers=0, shuffle=False)
     for data in tqdm(dataloader):
         pass
@@ -487,7 +531,7 @@ def replace_data_root(paths, replace_src, replace_dst, save_dir, judge_dst_path_
                 assert os.path.exists(data['path'])
             for i in range(len(data['files'])):
                 data['files'][i] = data['files'][i].replace(replace_src, replace_dst)
-        dst_dataset =  os.path.join(save_dir, os.path.basename(path))
+        dst_dataset = os.path.join(save_dir, os.path.basename(path))
         save_dict2yaml(dataset, dst_dataset)
         print("[{}/{}] save database to {}".format(id, len(paths), dst_dataset))
 
@@ -496,10 +540,10 @@ if __name__ == "__main__":
     # test_dataset_vimeo2raw()
     test_date_iter()
     # check_database()
-	# replace_data_root(['G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-200.yaml',
-    #                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-523.yaml',
-    #                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_train_sn-51769.yaml',],
-    #                   replace_src="F:/database/vimeo_png/sequences/",
-    #                   replace_dst="G:/database/xiaomi/vimeo_png/sequences/",
-    #                   save_dir = "D:/code/aifactory/model_zoo/ainr/datasetsa",
-    #                   judge_dst_path_exists=True)
+# replace_data_root(['G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-200.yaml',
+#                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-523.yaml',
+#                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_train_sn-51769.yaml',],
+#                   replace_src="F:/database/vimeo_png/sequences/",
+#                   replace_dst="G:/database/xiaomi/vimeo_png/sequences/",
+#                   save_dir = "D:/code/aifactory/model_zoo/ainr/datasetsa",
+#                   judge_dst_path_exists=True)

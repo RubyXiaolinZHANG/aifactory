@@ -105,7 +105,7 @@ train:
   iters: 100000  # 00
   ckpt:
   path:  !join_path [*save_root, "train"]
-  evaluate_before_train: true
+  evaluate_before_train: false
   losses:
     mse:
       enable: true
@@ -170,6 +170,21 @@ train:
       params:
         magnitude_weight: 1.0
         phase_weight: 0.5
+    color:
+      enable: true
+      at_iter:
+        start: # 30000
+        end:
+      weight: 1.0
+      params:
+        pattern: RGGB
+        phase_weight: 1.0
+        contrast_weight: 1.0
+        hsv_weight:
+          - 1.0
+          - 1.0
+          - 0
+        loss: torch.nn.MSELoss
 
   optimizer:
     name: AdamW
