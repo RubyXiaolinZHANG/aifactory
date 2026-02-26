@@ -39,23 +39,17 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
         self._log = log
         if isinstance(paths, str):
             assert os.path.exists(paths)
-            info = "Loading database: {}".format(paths)
-            if self._log is not None:
-                self._log.info(info)
-            else:
-                print(info)
+            self.info("Loading database: {}".format(paths))
             self._dataset = load_file(paths)
-            self._log.info("Loading database done!\n")
+            self.info("Loading database done!\n")
         else:
             for path in paths:
                 assert os.path.exists(path)
-                info = "Loading database: {}".format(paths)
-                print(info) if self._log is None else self._log.info(info)
+                self.info("Loading database: {}".format(paths))
                 if self._dataset is None:
                     self._dataset = {}
                 self._dataset.update(load_file(path))
-                info = "Loading database done!\n"
-                print(info) if self._log is None else self._log.info(info)
+                self.info("Loading database done!\n")
 
         if isinstance(cam, IspParameters):
             self._cam = cam
@@ -197,6 +191,9 @@ class DatasetVimeo2Raw(torch.utils.data.Dataset):
             else:
                 print(info)
         return sample
+
+    def info(self, info):
+        self._log.info(info) if (self._log is not None and hasattr(self._log, "info")) else print(info)
 
     @property
     def crop_enable(self):

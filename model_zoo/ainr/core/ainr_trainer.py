@@ -466,7 +466,7 @@ class AinrTrainer(BasicTrainer, AinrInference):
                         self.save_images(sample_dict, image_save_dir,
                                          target_key.replace(":", "-").replace("/", "_"),
                                          rgb2bgr=True)
-                    if "weight_mask" in data:
+                    if False and ("weight_mask" in data):
                         target_key = "{}/{}_{}".format(key, target_id + len(target_names) + len(cvt_rgb_names), target_name)
                         masked_sample = {}
                         for frame_id, (name, rgb) in enumerate(sample_dict.items()):

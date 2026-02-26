@@ -1,5 +1,5 @@
 task: &task F3_AINR_Unet
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260209
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260214
 # path: !join [*save_root, "/train"]
 device: cuda
 workers: 0

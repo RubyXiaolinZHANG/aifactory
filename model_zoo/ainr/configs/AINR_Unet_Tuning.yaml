@@ -11,44 +11,76 @@ model:
     present: [1, 1, 3008, 4000]
     previous: [1, 1, 3008, 4000]
   parameters:
+    activation: &default_activation
+      name: relu
+      params:
     arch:
       adaptor:
-        input_channels:
-          - 8
-      encoder_stage_0:
-        input_channels:
-          - 16
-          - 16
-      encoder_stage_1:
-        input_channels:
-          - 32
-          - 32
-      encoder_stage_2:
-        input_channels:
-          - 64
-          - 64
+        input_channel: 4
+        mid_channels:
+        output_channel: &adaptor_oc 16
+        activation: *default_activation
+      encoder:
+        stage_0:
+          input_channel: *adaptor_oc
+          mid_channels:
+            - 16
+          output_channel: &encoder_stage_0_oc 32
+          activation: *default_activation
+        stage_1:
+          input_channel: *encoder_stage_0_oc
+          mid_channels:
+            - 32
+          output_channel: &encoder_stage_1_oc 64
+          activation: *default_activation
+        stage_2:
+          input_channel: *encoder_stage_1_oc
+          mid_channels:
+            - 64
+          output_channel: &encoder_stage_2_oc 128
+          activation: *default_activation
       mid_layer:
-        input_channels:
-          - 128
-      decoder_stage_3:
-        input_channels:
-          - 128
-          - 128
-      decoder_stage_2:
-        input_channels:
-          - 192
-          - 192
-      decoder_stage_1:
-        input_channels:
-          - 128
-          - 128
-      decoder_stage_0:
-        input_channels:
-          - 96
-          - 64
-    activation:
-      func: torch.relu
-      params:
+        input_channel: *encoder_stage_2_oc
+        mid_channels:
+        output_channel: &mid_layer_oc 128
+        activation: *default_activation
+      decoder:
+        decoder_stage_3:
+          input_channel: *mid_layer_oc
+          mid_channels:
+            - 128
+          output_channel: &decoder_stage_3_oc 64
+          activation: *default_activation
+        decoder_stage_2:
+          input_channel:
+          mid_channels:
+            - 192
+          output_channel: 64
+          activation: *default_activation
+        decoder_stage_1:
+          input_channel:
+          mid_channels:
+            - 128
+          output_channel: 32
+          activation: *default_activation
+        decoder_stage_0:
+          input_channel:
+          mid_channels:
+            - 96
+          output_channel: &decoder_oc 16
+          activation: *default_activation
+      head:
+        head_1:
+          input_channel: *decoder_oc
+          mid_channels:
+          output_channel: 5
+          activation: *default_activation
+        head_2:
+          input_channel: *decoder_oc
+          mid_channels:
+            - 16
+          output_channel: 4
+          activation: *default_activation
 
 
 database:

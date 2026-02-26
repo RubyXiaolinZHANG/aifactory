@@ -26,7 +26,7 @@ class NanDebugger:
             return True
         return False
 
-    def save_snapshot(self, iteration, loss=None, additional_info=None):
+    def save_snapshot(self, iteration, loss=None, state_info=None, additional_info=None):
         """Save complete debugging snapshot"""
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         snapshot_dir = os.path.join(self.save_dir, f"nan_debug_{timestamp}_iter{iteration}")
@@ -35,11 +35,15 @@ class NanDebugger:
 
         # 1. Save model parameters
         model_path = os.path.join(snapshot_dir, "model_state.pth")
-        torch.save({
+        save_state = {
             'model_state_dict': self.model.state_dict(),
             'model_structure': str(self.model),
             'model_config': self._get_model_config()
-        }, model_path)
+        }
+        if state_info is not None:
+            assert isinstance(state_info, dict)
+            save_state.update(state_info)
+        torch.save(save_state, model_path)
 
         # 2. Save optimizer state
         optimizer_path = os.path.join(snapshot_dir, "optimizer_state.pth")
@@ -78,7 +82,6 @@ class NanDebugger:
 
         # 6. Save current Python environment information
         self._save_environment_info(snapshot_dir)
-
         print(f"✅ Debug snapshot saved to: {snapshot_dir}")
         return snapshot_dir
 
@@ -162,5 +165,3 @@ class NanDebugger:
 
         with open(os.path.join(save_dir, 'environment.json'), 'w') as f:
             json.dump(env_info, f, indent=2)
-
-

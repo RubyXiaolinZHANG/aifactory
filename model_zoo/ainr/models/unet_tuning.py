@@ -21,37 +21,8 @@ class UnetBackboneWithParamTuning(torch.nn.Module):
 
     def __init__(self, base_width=8, stage_x_w=None, stage_x_d=None):
         super(UnetBackboneWithParamTuning, self).__init__()
-        if stage_x_w is None:
-            stage_x_w = [1,1,1]
-        if stage_x_d is None:
-            stage_x_d = [1,1,1]
-        assert len(stage_x_d) == len(stage_x_w)
-        stage_num = len(stage_x_w)
-
-        self.adaptor = torch.nn.Conv2d(in_channels=8, out_channels=8, kernel_size=3, stride=1, padding=1)
-
-        self.encoder_1_1_conv = torch.nn.Conv2d(in_channels=8, out_channels=8, kernel_size=3, padding=1)
-        self.down_1_conv = torch.nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, stride=2, padding=1)
-
-        self.encoder_2_1_conv = torch.nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1)
-        self.down_2_conv = torch.nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, stride=2, padding=1)
-
-        self.encoder_3_1_conv = torch.nn.Conv2d(in_channels=16, out_channels=16, kernel_size=3, padding=1)
-        self.down_3_conv = torch.nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, stride=2, padding=1)
-
-        self.bottom_1_conv = torch.nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
-        self.bottom_2_conv = torch.nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
-
-        self.up_3_conv = torch.nn.ConvTranspose2d(in_channels=32, out_channels=16, kernel_size=2, stride=2)
-        self.decoder_3_1_conv = torch.nn.Conv2d(in_channels=32, out_channels=16, kernel_size=3, padding=1)
-
-        self.up_2_conv = torch.nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=2, stride=2)
-        self.decoder_2_1_conv = torch.nn.Conv2d(in_channels=24, out_channels=16, kernel_size=3, padding=1)
-
-        self.up_1_conv = torch.nn.ConvTranspose2d(in_channels=16, out_channels=8, kernel_size=2, stride=2)
-        self.decoder_1_1_conv = torch.nn.Conv2d(in_channels=16, out_channels=8, kernel_size=3, padding=1)
-
-        self.head = torch.nn.Conv2d(in_channels=8, out_channels=5, kernel_size=3, padding=1)
+        self._encoder = []
+        # self._mid_layer =
 
     def forward(self, x_cur):
         features = self.adaptor(x_cur)

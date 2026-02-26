@@ -37,7 +37,7 @@ def rgb_to_hsv(rgb, eps=1e-8):
     h = torch.clamp(h, 0, 1)
 
     # ---------- Saturation ----------
-    s = torch.where(max_val > eps, diff / max_val, torch.zeros_like(max_val))
+    s = torch.where(max_val > eps, diff / (max_val + eps), torch.zeros_like(max_val))
     s = torch.clamp(s, 0, 1)
 
     # ---------- Value ----------

@@ -8,6 +8,7 @@ from aifactory.utils.nan_debugger import NanDebugger
 from aifactory.utils.monitor import ModuleMonitor
 from aifactory.libs.loss import LOSSES
 
+
 class BasicTrainer(PipelineOperator):
     _optimizer_handler = None
     _optimizer = None
@@ -280,7 +281,11 @@ class BasicTrainer(PipelineOperator):
         return info
 
     def forward_nan_detection(self):
-        return self.nan_detection(self._outputs)
+        info = self.nan_detection(self._outputs)
+        if info is not None:
+            info["current_state"] = {"inputs": self._inputs,
+                                     "outputs": self._outputs}
+        return info
 
     def loss_nan_detection(self):
         losses = {}
@@ -292,6 +297,10 @@ class BasicTrainer(PipelineOperator):
             else:
                 raise ValueError("Do not support loss type of {}".format(type(loss)))
         loss_info = self.nan_detection(losses)
+        if loss_info is not None:
+            loss_info["current_state"] = {"inputs": self._inputs,
+                                          "outputs": self._outputs,
+                                          "losses": self._results['losses']}
         return loss_info, losses
 
     def backward_nan_detection(self):
@@ -302,7 +311,12 @@ class BasicTrainer(PipelineOperator):
             if gradients is None:
                 gradients = {}
             gradients[name] = param.grad
-        return self.nan_detection(gradients)
+        info = self.nan_detection(gradients)
+        if info is not None:
+            info["current_state"] = {"inputs": self._inputs,
+                                     "outputs": self._outputs,
+                                     "losses": self._results['losses']}
+        return info
 
     def print_nan_info(self, nan_info):
         for id, (name, info) in enumerate(nan_info.items()):
@@ -329,14 +343,14 @@ class BasicTrainer(PipelineOperator):
                     "model": self._model.state_dict(),
                     "optmizer": self._optimizer.state_dict(),
                     }
-        )
+                   )
 
     def init_monitor(self):
 
         target_modules = None
         for name, loss in self._losses.items():
             if isinstance(loss['func'], torch.nn.Module):
-                if loss['func'].__class__.__name__ =="GradientMagnitudePhaseLoss":
+                if loss['func'].__class__.__name__ == "GradientMagnitudePhaseLoss":
                     continue
                 loss.name = name
                 if target_modules is None:

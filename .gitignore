@@ -8,3 +8,5 @@ model_zoo/ainr/core/ainr_trainer - 副本.py
 model_zoo/ainr/models/onnx/
 model_zoo/ainr/models/unet_org.py
 tools/o2s/
+aifactory/libs/data/control_scenes/test/
+model_zoo/ainr/configs/AINR_Unet_Tuning - 副本.yaml
