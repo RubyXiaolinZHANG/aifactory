@@ -534,8 +534,8 @@ def replace_data_root(paths, replace_src, replace_dst, save_dir, judge_dst_path_
 
 
 if __name__ == "__main__":
-    # test_dataset_vimeo2raw()
-    test_date_iter()
+    test_dataset_vimeo2raw()
+    # test_date_iter()
     # check_database()
 # replace_data_root(['G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-200.yaml',
 #                    'G:/database/xiaomi/vimeo_png/datasets/vimeo_val_sn-523.yaml',

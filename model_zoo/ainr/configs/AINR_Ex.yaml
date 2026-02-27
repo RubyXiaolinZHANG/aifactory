@@ -1,5 +1,5 @@
 task: &task F3_AINR_EXAMPLE_CROP
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/example_20260204_ImCrop
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/example_20260227_ImCrop
 # path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
@@ -36,7 +36,7 @@ database:
   eval:
     vimeo_iso-800:
       name: vimeo_iso-800
-      enable: true
+      enable: false
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -51,7 +51,7 @@ database:
         fix_sequence: true
     vimeo_iso-1600:
       name: vimeo_iso-1600
-      enable: true
+      enable: false
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -103,12 +103,12 @@ database:
 
 train:
   iters: 100000  # 00
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
+  ckpt: # H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
   path:  !join_path [*save_root, "train"]
   evaluate_before_train: true
   losses:
     mse:
-      enable: true
+      enable: false
       at_iter:
         start: 0
         end:
@@ -144,7 +144,7 @@ train:
         enable: true
         weight: 0.3
     gradient:
-      enable: true
+      enable: false
       at_iter:
         start: # 1000
         end:
@@ -198,13 +198,13 @@ eval:
     save_ratio: 0.1
 
 infer:
-  # ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
-  ckpt: 'D:/Program/ToGit/xiaomi/mict/model_zoo/ainr_ly/models/pos/original_reluout_float.pth'
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
+  # ckpt: 'D:/Program/ToGit/xiaomi/mict/model_zoo/ainr_ly/models/pos/original_reluout_float.pth'
   path:  !join_path [*save_root, "baseline"]
 
 log:
   project_name: *task
-  experiment_name: !join_string [*model_name, "_baseline"]
+  experiment_name: !join_string [*model_name, "_crop"]
   config:
   log_dir: !join_path [*save_root, "train", "log"]
   use_trackio: true

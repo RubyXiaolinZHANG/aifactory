@@ -1,5 +1,5 @@
 task: &task F3_AINR_Unet
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260214
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260227
 # path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
@@ -25,7 +25,7 @@ database:
         cam: O2S
         cvt_bits: 16
         frame_num: 7
-        edge_mask_val: 1.0
+        edge_mask_val: # 1.0
         fix_sequence: false
         # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
     control:
@@ -35,7 +35,7 @@ database:
   eval:
     vimeo_iso-800:
       name: vimeo_iso-800
-      enable: true
+      enable: false
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -50,7 +50,7 @@ database:
         fix_sequence: true
     vimeo_iso-1600:
       name: vimeo_iso-1600
-      enable: true
+      enable: false
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -108,7 +108,7 @@ train:
   evaluate_before_train: false
   losses:
     mse:
-      enable: true
+      enable: false
       at_iter:
         start: 0
         end:
@@ -117,7 +117,7 @@ train:
         enable: false
         weight: 0.3
     masked_mse:
-      enable: true
+      enable: false
       at_iter:
         start: 0
         end:
@@ -135,7 +135,7 @@ train:
         enable: true
         weight: 0.3
     masked_l1:
-      enable: true
+      enable: false
       at_iter:
         start: 0
         end:
@@ -171,7 +171,7 @@ train:
         magnitude_weight: 1.0
         phase_weight: 0.5
     color:
-      enable: true
+      enable: false
       at_iter:
         start: # 30000
         end:
@@ -189,7 +189,7 @@ train:
   optimizer:
     name: AdamW
     params:
-      lr: 0.001
+      lr: 0.0001
       betas:
         - 0.9
         - 0.999

@@ -412,6 +412,8 @@ class AinrTrainer(BasicTrainer, AinrInference):
                                                                     data['cam']['d_gain'][sample_id].round().to(torch.int32))
                 image_names = [os.path.basename(batch_files[sample_id]).split(".")[0] for batch_files in data["files"]]
                 for target_id, target_name in enumerate(target_names):
+                    if not (target_name in data):
+                        continue
                     target_key = "{}/{}_{}".format(key, target_id, target_name)
                     sample = data[target_name][sample_id]
                     if target_name == "fusion_mask":
@@ -440,6 +442,8 @@ class AinrTrainer(BasicTrainer, AinrInference):
                         self.save_images(sample_dict, image_save_dir,
                                          target_key.replace(":", "-").replace("/", "_"))
                 for target_id, target_name in enumerate(cvt_rgb_names):
+                    if not (target_name in data):
+                        continue
                     target_key = "{}/{}_{}".format(key, target_id + len(target_names), target_name)
                     sample = data[target_name][sample_id]
                     frame_names = []
