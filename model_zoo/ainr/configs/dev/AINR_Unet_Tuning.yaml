@@ -1,10 +1,83 @@
-task: &task F3_AINR_Tuning_Unet_Crop
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302
+task: &task F3_AINR_Unet_Tuning_Crop
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260128
+# path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
 dtype: torch.float32
 
-model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet.yaml
+model:
+  name: &model_name AinrUnet
+  input_shapes:
+    present: [1, 1, 3008, 4000]
+    previous: [1, 1, 3008, 4000]
+  parameters:
+    activation: &default_activation
+      name: relu
+      parameters:
+    arch:
+      adaptor:
+        input_channel: 8
+        mid_channels:
+          - 8
+        output_channel: &adaptor_oc 8
+        activation: *default_activation
+      encoder:
+        stage_0:
+          input_channel: *adaptor_oc
+          mid_channels:
+            - 16
+          output_channel: &encoder_stage_0_oc 16
+          activation: *default_activation
+        stage_1:
+          input_channel: *encoder_stage_0_oc
+          mid_channels:
+            - 16
+          output_channel: &encoder_stage_1_oc 16
+          activation: *default_activation
+        stage_2:
+          input_channel: *encoder_stage_1_oc
+          mid_channels:
+          output_channel: &encoder_stage_2_oc 32
+          activation: *default_activation
+      mid_layer:
+#        input_channel: *encoder_stage_2_oc
+#        mid_channels:
+#        output_channel: &mid_layer_oc 32
+#        activation: *default_activation
+      decoder:
+        decoder_stage_2:
+          input_channel: *encoder_stage_2_oc
+          mid_channels:
+            - 32
+          output_channel: &decoder_stage_2_oc 16
+          activation: *default_activation
+        decoder_stage_1:
+          input_channel: !math_add [*encoder_stage_1_oc, *decoder_stage_2_oc]
+          mid_channels:
+            - 16
+          output_channel: &decoder_stage_1_oc 8
+          activation: *default_activation
+        decoder_stage_0:
+          input_channel: !math_add [*encoder_stage_0_oc, *decoder_stage_1_oc]
+          mid_channels:
+            - 16
+          output_channel: &decoder_stage_0_oc 8
+          activation: *default_activation
+      heads:
+        head_denoise:
+          input_channel: !math_add [*adaptor_oc, *decoder_stage_0_oc]
+          mid_channels:
+            - 8
+          output_channel: 5
+          activation: *default_activation
+          output_activation_disable: True
+#        head_jdd:
+#          input_channel: !math_add [*adaptor_oc, *decoder_stage_0_oc]
+#          mid_channels:
+#            - 8
+#          output_channel: 4
+#          activation: *default_activation
+
 
 database:
   train:
@@ -97,10 +170,10 @@ database:
       database_loader: generate_control_scene_raw
 
 train:
-  iters: 200000  # 00
+  iters: 100000  # 00
   ckpt:
   path:  !join_path [*save_root, "train"]
-  evaluate_before_train: false
+  evaluate_before_train: true
   losses:
     mse:
       enable: false
@@ -193,13 +266,12 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302/train/ckpt/AinrUnetWithParamTuning_00018000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00018000"]
+  ckpt:
+  path:  !join_path [*save_root, "infer"]
 
 log:
   project_name: *task
-  experiment_name: ainr_tuningUnet_baseline_crop # !join_string [*model_name, "_tuning_crop"]
-  # experiment_name: ainr_unet_transConv_wo_relu
+  experiment_name: !join_string [*model_name, "_tuning_crop"]
   config:
   log_dir: !join_path [*save_root, "train", "log"]
   use_trackio: true

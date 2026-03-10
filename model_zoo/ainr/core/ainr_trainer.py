@@ -373,7 +373,7 @@ class AinrTrainer(BasicTrainer, AinrInference):
         rm_ckpt = self._best_ckpts.insert({self._best_ckpts.sort_key: -model_val if best_ckpt_is_small else model_val,
                                            "path": model_path})
         if rm_ckpt is not None:
-            self._log.info("Remove CKPT: {}\t{}".format(rm_ckpt["path"], rm_ckpt["score"]))
+            self._log.info("Remove CKPT: {}\t{:.4f}".format(rm_ckpt["path"], rm_ckpt["score"]))
         self._log.info("Reserved CKPTs: ")
         ckpts = self._best_ckpts.get_sorted_items()
         for ckpt_id, ckpt in enumerate(ckpts):
@@ -515,7 +515,7 @@ class AinrTrainer(BasicTrainer, AinrInference):
         self._log.info("Training pipeline finished. Saving final model ...")
         ckpts = self._best_ckpts.get_sorted_items()
         for ckpt_id, ckpt in enumerate(ckpts):
-            self._log.info("[{}/{}]\t{}\t{}".format(ckpt_id,
+            self._log.info("[{}/{}]\t{}\t{:.4f}".format(ckpt_id,
                                                     self._reserve_best_ckpt,
                                                     ckpt["path"], ckpt["score"]))
         super().finish()

@@ -153,11 +153,19 @@ class MainDenoise(nn.Module):
                 "noise": self.up(output[:, 0:4, ...]),
                 "fusion_mask": output[:, 4, ...].unsqueeze(dim=1)}
 
+
 if __name__ == "__main__":
     from thop import profile
+    import onnx, os
+
     model = UNet().to('cpu')
-    input0 = torch.randn(1, 8, 1504, 2000)
-    macs1, params1 = profile(model, inputs=(input0, ))
+    dummy_input = torch.randn(1, 8, 1504, 2000)
+    macs1, params1 = profile(model, inputs=(dummy_input, ))
     print(model)
     print('GOPs = ' + str(macs1 * 2 / 1000 ** 3) + 'G')
     print('Params = ' + str(params1 / 1000 ** 1) + 'K')
+
+    onnx_file = './onnx/ainr_unet_backbone_org.onnx'
+    os.makedirs(os.path.dirname(onnx_file), exist_ok=True)
+    torch.onnx.export(model, dummy_input, onnx_file, simplify=True, opset=13)
+    onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(onnx_file)), onnx_file)

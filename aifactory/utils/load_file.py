@@ -48,6 +48,32 @@ def joint_string_constructor(loader, node):
     else:
         return str(loader.construct_scalar(node))
 
+
+def math_add_constructor(loader, node):
+    # process list
+    if isinstance(node, nodes.SequenceNode):
+        sequence = loader.construct_sequence(node)
+        return np.array(sequence).sum()
+    # process scalar
+    else:
+        return loader.construct_scalar(node)
+
+
+def math_times_constructor(loader, node):
+    # process list
+    if isinstance(node, nodes.SequenceNode):
+        sequence = loader.construct_sequence(node)
+        return np.array(sequence).prod()
+    # process scalar
+    else:
+        return loader.construct_scalar(node)
+
+
+def include_constructor(loader, node):
+    filename = loader.construct_scalar(node)
+    data = load_file_yaml(filename)
+    return data
+
 def load_file_yaml(file):
     check_file(file)
     with open(file, "r", encoding="utf-8") as file:
@@ -55,6 +81,9 @@ def load_file_yaml(file):
         yaml.allow_duplicate_keys = False
         yaml.Constructor.add_constructor('!join_path', join_path_constructor)
         yaml.Constructor.add_constructor('!join_string', joint_string_constructor)
+        yaml.Constructor.add_constructor('!math_add', math_add_constructor)
+        yaml.Constructor.add_constructor('!math_times', math_times_constructor)
+        yaml.Constructor.add_constructor('!include', include_constructor)
         data = yaml.load(file)
     return data
 
@@ -81,7 +110,3 @@ def load_file(file, suffix=None):
         return load_file_raw(file)
     else:
         raise ValueError("do not support loading file {}".format(suffix))
-
-import torch
-
-torch.nn.Upsample

@@ -21,7 +21,10 @@ def parse_arg():
                         type=str,
                         # default="../configs/AINR_Ex.yaml",
                         # default="../configs/AINR_Dev.yaml",
-                        default="../configs/AINR_Unet_Baseline.yaml",
+                        # default="../configs/ainr_unet_baseline.yaml",
+                        # default="../configs/ainr_unet_tuning_ex.yaml",
+                        default="../configs/ainr_unet_tuning_baseline.yaml",
+                        # default="../configs/ainr_unet_tuning_transConv_wo_relu.yaml",
                         help="path to database")
     return parser.parse_args()
 
@@ -58,7 +61,10 @@ def main(arguments):
     device = torch.device(config.get("device", "cpu"))
 
     # init model
-    model = MODELS[config["model"]["name"]]()
+    if config["model"].get("parameters") is None:
+        model = MODELS[config["model"]["name"]]()
+    else:
+        model = MODELS[config["model"]["name"]](config["model"]["parameters"]['arch'])
 
     # init train data loaders
     samples = get_test_samples(config["database"]["test"])

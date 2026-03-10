@@ -19,9 +19,12 @@ def parse_arg():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config",
                         type=str,
-                        # default="../configs/AINR_Unet_Baseline.yaml",
-                        default="../configs/AINR_Ex.yaml",
-                        # default="../configs/AINR_Dev.yaml",
+                        #default="../configs/AINR_Unet_Baseline.yaml",
+                        # default="../configs/AINR_Ex.yaml",
+                        # default="../configs/anir_dev.yaml",
+                        # default="../configs/ainr_unet_tuning_ex.yaml",
+                        default="../configs/ainr_unet_tuning_baseline.yaml",
+                        # default="../configs/ainr_unet_tuning_transConv_wo_relu.yaml",
                         help="path to database")
     return parser.parse_args()
 
@@ -37,7 +40,10 @@ def main(arguments):
 
     # init model
     set_seed(0)
-    model = MODELS[config["model"]["name"]]()
+    if config["model"].get("parameters") is None:
+        model = MODELS[config["model"]["name"]]()
+    else:
+        model = MODELS[config["model"]["name"]](config["model"]["parameters"]['arch'])
 
     # init train data loaders
     train_data = init_dataloaders(config["database"]["train"],
@@ -76,7 +82,9 @@ def main(arguments):
                           model_inputs=config["model"].get("model_inputs", None),
                           model_input_shapes=config["model"].get("input_shapes", None),
                           dtype=eval(config['dtype']),
-                          save_path = config["train"]["path"]
+                          save_path = config["train"]["path"],
+                          export_onnx = os.path.join( config["train"]["path"], "onnx",
+                                                      "{}.onnx".format(model.__class__.__name__))
                           )
 
     trainer()

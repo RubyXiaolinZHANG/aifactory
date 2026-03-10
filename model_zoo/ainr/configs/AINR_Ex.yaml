@@ -173,7 +173,7 @@ train:
     frames: 3
 
 eval:
-  ckpt:
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260227_ImCrop/train/ckpt/MainDenoise_00002000.pth
   path:  !join_path [*save_root, "eval"]
   metrics:
     psnr:
@@ -198,9 +198,10 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260227_ImCrop/train/ckpt/MainDenoise_00100000.pth
+  # ckpt: H:/_result/ai_factory/model_zoo/ainr/example_20260202/train/ckpt/MainDenoise_00031000.pth
   # ckpt: 'D:/Program/ToGit/xiaomi/mict/model_zoo/ainr_ly/models/pos/original_reluout_float.pth'
-  path:  !join_path [*save_root, "baseline"]
+  path:  !join_path [*save_root, 'infer', "MainDenoise_00100000"]
 
 log:
   project_name: *task

@@ -1,10 +1,10 @@
 task: &task F3_AINR_Tuning_Unet_Crop
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/ainr_tuning_baseline_20260306
 device: cuda
 workers: 0
 dtype: torch.float32
 
-model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet.yaml
+model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet_baseline.yaml
 
 database:
   train:
@@ -193,8 +193,8 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302/train/ckpt/AinrUnetWithParamTuning_00018000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00018000"]
+  ckpt: H:\_result\ai_factory\model_zoo\ainr\unet_tuning_ex_20260306\train\ckpt\AinrUnetWithParamTuning_00091000.pth
+  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00091000"]
 
 log:
   project_name: *task

@@ -1,12 +1,7 @@
 import os
-
 import torch
-DEFAULT_ADAPTOR = {"input_chanels": [8]}
-
-DEFAULT_ENCODER_STAGE_1 = {"input_chanels": [8]}
-
-DEFAULT_ARC = {"ad"}
-
+from aifactory.libs.nn.blocks import BasicBlockParameters, from_dict
+from aifactory.libs.nn.nets.unet import Unet
 
 
 class Preprocess(torch.nn.Module):
@@ -16,6 +11,7 @@ class Preprocess(torch.nn.Module):
 
     def forward(self, present, previous):
         return self.space2depth(torch.concat([present, previous], dim=1))
+
 
 class UnetBackboneWithParamTuning(torch.nn.Module):
 
@@ -84,19 +80,56 @@ class Postprocess(torch.nn.Module):
                 "fusion": self.channel2space(fusion),
                 "noise": self.channel2space(noise),
                 "fusion_mask": score}
-    
+
+
+def parse_unet_arc_params(unet_arc_params):
+    if isinstance(unet_arc_params['adaptor'], BasicBlockParameters):
+        return unet_arc_params
+
+    params = unet_arc_params['adaptor']
+    adaptor_params = from_dict(BasicBlockParameters, params)
+
+    encoder_params = unet_arc_params['encoder']
+    for stage_name, stage_params in encoder_params.items():
+        encoder_params[stage_name] = from_dict(BasicBlockParameters, stage_params)
+
+    mid_params = unet_arc_params['mid_layer']
+    if mid_params is None:
+        pass
+    elif "in_channels" in mid_params:
+        mid_params = from_dict(BasicBlockParameters, mid_params)
+    else:
+        for block_name, block_params in mid_params.items():
+            mid_params[block_name] = from_dict(BasicBlockParameters, block_params)
+
+    decoder_params = unet_arc_params['decoder']
+    for stage_name, stage_params in decoder_params.items():
+        decoder_params[stage_name] = from_dict(BasicBlockParameters, stage_params)
+
+    heads_params = unet_arc_params['heads']
+    for head_name, head_params in heads_params.items():
+        heads_params[head_name] = from_dict(BasicBlockParameters, head_params)
+
+    unet_arc_parameters = {"adaptor": adaptor_params,
+                           "encoder": encoder_params,
+                           "mid_layer": mid_params,
+                           "decoder": decoder_params,
+                           "heads": heads_params}
+    return unet_arc_parameters
+
 
 class AinrUnetWithParamTuning(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, unet_arc_params):
         super().__init__()
         self.preprocess = Preprocess()
-        self.denoise = UnetBackboneWithParamTuning()
+        self.denoise = Unet(parse_unet_arc_params(unet_arc_params))
         self.postprocess = Postprocess()
+
 
     def forward(self, present, previous):
         preprocess = self.preprocess(present, previous)
-        net_out = self.denoise(preprocess)
+        net_out = self.denoise(preprocess)[0]
         result = self.postprocess(preprocess[:, :4], preprocess[:, 4:], net_out[:,:4], net_out[:,4].unsqueeze(dim=1))
         return result
 
@@ -105,23 +138,59 @@ if __name__ == "__main__":
     from torchinfo import summary
     import onnx
     from aifactory.utils.load_file import load_file
-    config_file = "D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/AINR_Unet_Tuning.yaml"
-    config = load_file(config_file)
+
+    INIT_MODEL_FROM_CONFIG = True
+    config_file = "D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet_ex.yaml"
+    model_config = load_file(config_file)
+
+    if INIT_MODEL_FROM_CONFIG:
+        unet_arc_parameters = model_config["parameters"]['arch']
+    else:
+        # get unet arch parameters
+        params = model_config["parameters"]['arch']['adaptor']
+        adaptor_params = from_dict(BasicBlockParameters, params)
+
+        encoder_params = model_config["parameters"]['arch']['encoder']
+        for stage_name, stage_params in encoder_params.items():
+            encoder_params[stage_name] = from_dict(BasicBlockParameters, stage_params)
+
+        mid_params = model_config["model"]["parameters"]['arch']['mid_layer']
+        if mid_params is None:
+            pass
+        elif "input_channel" in mid_params:
+            mid_params = from_dict(BasicBlockParameters, mid_params)
+        else:
+            for block_name, block_params in mid_params.items():
+                mid_params[block_name] = from_dict(BasicBlockParameters, block_params)
+
+        decoder_params = model_config["model"]["parameters"]['arch']['decoder']
+        for stage_name, stage_params in decoder_params.items():
+            decoder_params[stage_name] = from_dict(BasicBlockParameters, stage_params)
+
+        heads_params = model_config["model"]["parameters"]['arch']['heads']
+        for head_name, head_params in heads_params.items():
+            heads_params[head_name] = from_dict(BasicBlockParameters, head_params)
+
+        unet_arc_parameters = {"adaptor": adaptor_params,
+                               "encoder": encoder_params,
+                               "mid_layer": mid_params,
+                               "decoder": decoder_params,
+                               "heads": heads_params}
 
     h, w = 1504 * 2, 2000 * 2
     dummy_input = {"present": torch.randn(1, 1, h, w),
                    "previous": torch.randn(1, 1, h, w)}
 
-    model = AinrUnetWithParamTuning()
+    model = AinrUnetWithParamTuning(unet_arc_parameters)
     summary(model,
             input_data=(list(dummy_input.values())),
             verbose=2)
 
-    onnx_file = './onnx/ainr_unet_.onnx'
+    onnx_file = './onnx/model_ainr_unet_ex.onnx'
     os.makedirs(os.path.dirname(onnx_file), exist_ok=True)
     torch.onnx.export(model, dummy_input, onnx_file, simplify=True, opset=13)
     onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(onnx_file)), onnx_file)
 
-    onnx_file = './onnx/ainr_unet_backbone_.onnx'
+    onnx_file = './onnx/model_ainr_unet_backbone_ex.onnx'
     torch.onnx.export(model.denoise, torch.randn(1, 8, h//2, w//2), onnx_file, simplify=True, opset=13)
     onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(onnx_file)), onnx_file)

@@ -1,28 +1,36 @@
-task: &task F3_AINR_Tuning_Unet_Crop
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302
+task: &task F3_AINR_DEV
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/Dev
 device: cuda
 workers: 0
 dtype: torch.float32
 
-model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet.yaml
+model:
+  name: &model_name example
+  input_shapes:
+    present: [1, 1, 3008, 4000]
+    previous: [1, 1, 3008, 4000]
 
 database:
   train:
     vimeo:
       name: vimeo
       enable: true
-      batch_size: 8
-      shuffle: true
+      batch_size: 1
+      shuffle: false
       dataset: DatasetVimeo2Raw
       parameters:
         paths:
-          - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
+          # - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
         cam: O2S
         cvt_bits: 16
-        crop:
-          height: 256
-          width: 256
+        iso: 3200
+#        crop:
+#          height: 256
+#          width: 256
         frame_num: 7
+        edge_mask_val: 1.0
+        fix_sequence: true
         # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
     control:
       name: control
@@ -88,7 +96,7 @@ database:
       parameters:
         paths:
           - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N10103_250414_01_O2S_OVX9100_Portrait
-          # - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N20103_250414_01_O2S_OVX9100_Portrait
+          # - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/
 
     control:
       name: control
@@ -97,13 +105,13 @@ database:
       database_loader: generate_control_scene_raw
 
 train:
-  iters: 200000  # 00
+  iters: 100000  # 00
   ckpt:
   path:  !join_path [*save_root, "train"]
   evaluate_before_train: false
   losses:
     mse:
-      enable: false
+      enable: true
       at_iter:
         start: 0
         end:
@@ -112,6 +120,24 @@ train:
         enable: true
         weight: 0.3
     pixel_l1:
+      enable: true
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    masked_mse:
+      enable: true
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    masked_l1:
       enable: true
       at_iter:
         start: 0
@@ -139,14 +165,29 @@ train:
         enable: true
         weight: 0.3
     gradient:
-      enable: false
+      enable: true
       at_iter:
-        start: 30000
+        start: # 30000
         end:
       weight: 1.0
       params:
         magnitude_weight: 1.0
         phase_weight: 0.5
+    color:
+      enable: false
+      at_iter:
+        start: # 30000
+        end:
+      weight: 1.0
+      params:
+        pattern: RGGB
+        phase_weight: 1.0
+        contrast_weight: 1.0
+        hsv_weight:
+          - 1.0
+          - 1.0
+          - 0
+        loss: torch.nn.MSELoss
   optimizer:
     name: AdamW
     params:
@@ -168,7 +209,7 @@ train:
     frames: 3
 
 eval:
-  ckpt: 
+  ckpt:
   path:  !join_path [*save_root, "eval"]
   metrics:
     psnr:
@@ -193,13 +234,12 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302/train/ckpt/AinrUnetWithParamTuning_00018000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00018000"]
+  ckpt: D:\Program\ToGit\xiaomi\mict\model_zoo\ainr_ly\models\pos\original_reluout_float.pth
+  path:  !join_path [*save_root, "infer"]
 
 log:
   project_name: *task
-  experiment_name: ainr_tuningUnet_baseline_crop # !join_string [*model_name, "_tuning_crop"]
-  # experiment_name: ainr_unet_transConv_wo_relu
+  experiment_name: !join_string [*model_name, "_ex_dev"]
   config:
   log_dir: !join_path [*save_root, "train", "log"]
   use_trackio: true

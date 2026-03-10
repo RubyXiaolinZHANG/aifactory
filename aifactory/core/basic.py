@@ -1,4 +1,4 @@
-import torch
+import torch, onnx, os
 import builtins
 from torchinfo import summary
 from aifactory.libs.log.log import ExperimentLogger, TqdmLog
@@ -101,7 +101,8 @@ class PipelineOperator:
                         model_inputs=kwargs.get("model_inputs", None),
                         model_input_shapes=kwargs.get("model_input_shapes", None),
                         ckpt=ckpt,
-                        device=device)
+                        device=device,
+                        export_onnx=kwargs.get("export_onnx", None))
         self.init_dataloaders(dataloaders)
 
     @property
@@ -116,7 +117,7 @@ class PipelineOperator:
     def model(self):
         return self._model
 
-    def init_model(self, model, model_inputs, model_input_shapes, ckpt, device, verbose=0):
+    def init_model(self, model, model_inputs, model_input_shapes, ckpt, device, export_onnx=None, verbose=0):
         assert isinstance(model, torch.nn.Module)
         self._model_operator = ModelOperator(model,
                                              model_inputs=model_inputs,
@@ -131,6 +132,49 @@ class PipelineOperator:
         else:
             message = "model is not initialized in Pipeline"
             print(message) if self._log is None else self._log.warning(message)
+        if export_onnx:
+            if model_inputs is not None:
+                if isinstance(model_inputs, dict):
+                    model_inputs = tuple(model_inputs.values())
+                    model_input_names = tuple(model_inputs.keys())
+                elif isinstance(model_inputs, list):
+                    model_inputs = tuple(model_inputs)
+                    model_input_names = None
+                elif isinstance(model_inputs, (tuple, torch.Tensor)):
+                    model_input_names = None
+                else:
+                    raise ValueError(
+                        "model inputs should be dict, list, tuple or tensor, but the given inputs is {}".format(
+                            type(model_inputs)))
+                os.makedirs(os.path.dirname(export_onnx))
+                torch.onnx.export(self._model, model_inputs, export_onnx, input_names=model_input_names)
+                onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(export_onnx)), export_onnx)
+            elif model_input_shapes is not None:
+                if isinstance(model_input_shapes, dict):
+                    model_input_names = tuple(model_input_shapes.keys())
+                    model_inputs = tuple([torch.randn(size, device=device) for size in model_input_shapes.values()])
+                elif isinstance(model_input_shapes, (tuple, list)):
+                    model_input_names = None
+                    model_inputs = tuple([torch.randn(size, device=device) for size in model_input_shapes])
+                else:
+                    raise ValueError(
+                        "model inputs should be dict, list, tuple or tensor, but the given inputs is {}".format(
+                            type(model_inputs)))
+                os.makedirs(os.path.dirname(export_onnx))
+                torch.onnx.export(self._model, model_inputs, export_onnx, input_names=model_input_names)
+                onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(export_onnx)), export_onnx)
+            else:
+                info = "Input information is not provided, can not export onnx!"
+                if self._log is None:
+                    print(info)
+                elif isinstance(self._log, TqdmLog):
+                    self._log.info(info)
+                elif isinstance(self._log, ExperimentLogger):
+                    self._log.warning(info)
+                else:
+                    raise ValueError("Unrecognized type of log: {}".format(type(self._log)))
+        else:
+            pass
 
     def set_model(self, model):
         assert isinstance(model, torch.nn.Module)

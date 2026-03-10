@@ -1,6 +1,5 @@
 task: &task F3_AINR_Unet
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260227
-# path: !join [*save_root, "/train"]
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_20260304_FT
 device: cuda
 workers: 0
 dtype: torch.float32
@@ -103,9 +102,9 @@ database:
 
 train:
   iters: 100000  # 00
-  ckpt:
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_20260227/train/ckpt/AinrUnet_00059000.pth
   path:  !join_path [*save_root, "train"]
-  evaluate_before_train: false
+  evaluate_before_train: true
   losses:
     mse:
       enable: false
@@ -185,11 +184,10 @@ train:
           - 1.0
           - 0
         loss: torch.nn.MSELoss
-
   optimizer:
     name: AdamW
     params:
-      lr: 0.0001
+      lr: 0.00001
       betas:
         - 0.9
         - 0.999
@@ -232,8 +230,10 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_20260202/train/ckpt/AinrUnet_00050000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnet_00050000"]
+  # ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_20260202/train/ckpt/AinrUnet_00050000.pth
+  # ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_20260227/train/ckpt/AinrUnet_00056000.pth
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_20260227/train/ckpt/AinrUnet_00024000.pth
+  path:  !join_path [*save_root, "infer", "AinrUnet_00024000"]
 
 log:
   project_name: *task

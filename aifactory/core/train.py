@@ -320,30 +320,10 @@ class BasicTrainer(PipelineOperator):
 
     def print_nan_info(self, nan_info):
         for id, (name, info) in enumerate(nan_info.items()):
-            self._log.info("[{}/{}]\t{}".format(id, len(nan_info), info["info"]))
-
-    def save_present_state(self, save_dir):
-        self._monitor = self.init_monitor()
-
-        # repeat forward
-        org_outputs = self._outputs
-        self.model_infer()
-        self.compute_losses()
-
-        # repeat backward
-        self.backward()
-        print("**************")
-
-        # repeat backward
-        save_dir = os.path.join(save_dir, "Error_NaN_{}".format(datetime.now().strftime('%Y%m%d_%H%M')))
-        os.makedirs(save_dir, exist_ok=True)
-        torch.save({"inputs": self._inputs,
-                    "outputs": self._outputs,
-                    "targets": self._gt,
-                    "model": self._model.state_dict(),
-                    "optmizer": self._optimizer.state_dict(),
-                    }
-                   )
+            if isinstance(info, dict) and  "info" in info:
+                self._log.info("[{}/{}]\t{}".format(id, len(nan_info), info["info"]))
+            else:
+                self._log.info("[{}/{}]\t{} is recorded!".format(id, len(nan_info), name))
 
     def init_monitor(self):
 

@@ -1,0 +1,360 @@
+
+name: AinrCnnTransformer
+input_shapes:
+  present: [1, 3, 256, 256]
+parameters:
+  arch:
+    encoder:
+      stage_0:
+        mix:
+          attn_block_params:
+            in_channels: &ic 3
+            mid_channels: 16
+            bias: bool = True
+          mlp_params:
+            in_channels: *ic
+            mid_channels: 16
+            bias: bool = True
+          down_sample_params:
+            in_channels: *ic
+            mid_channels:
+            out_channels: &encoder_stage0_mix_oc 16
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        conduct:
+          attn_block_params:
+            in_channels: *encoder_stage0_mix_oc
+            mid_channels: 16
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage0_mix_oc
+            mid_channels: 16
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage0_mix_oc
+            mid_channels:
+            out_channels: &encoder_stage0_ds_oc 32
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage_1:
+        mix:
+          attn_block_params:
+            in_channels: *encoder_stage0_ds_oc
+            mid_channels: 32
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage0_ds_oc
+            mid_channels: 32
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage0_ds_oc
+            mid_channels:
+            out_channels: &encoder_stage1_mix_oc 32
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        down:
+          attn_block_params:
+            in_channels: *encoder_stage1_mix_oc
+            mid_channels: 32
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage1_mix_oc
+            mid_channels: 32
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage1_mix_oc
+            mid_channels:
+            out_channels: &encoder_stage1_ds_oc 64
+            mode: down_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage_2:
+        mix:
+          attn_block_params:
+            in_channels: *encoder_stage1_ds_oc
+            mid_channels: 64
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage1_ds_oc
+            mid_channels: 64
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage1_ds_oc
+            mid_channels:
+            out_channels: &encoder_stage2_mix_oc 64
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        down:
+          attn_block_params:
+            in_channels: *encoder_stage2_mix_oc
+            mid_channels: 64
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage2_mix_oc
+            mid_channels: 64
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage2_mix_oc
+            mid_channels:
+            out_channels: &encoder_stage2_ds_oc 128
+            mode: down_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage_3:
+        mix:
+          attn_block_params:
+            in_channels: *encoder_stage2_ds_oc
+            mid_channels: 128
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage2_ds_oc
+            mid_channels: 128
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage2_ds_oc
+            mid_channels:
+            out_channels: &encoder_stage3_mix_oc 128
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        down:
+          attn_block_params:
+            in_channels: *encoder_stage3_mix_oc
+            mid_channels: 128
+            bias: bool = True
+          mlp_params:
+            in_channels: *encoder_stage3_mix_oc
+            mid_channels: 128
+            bias: bool = True
+          down_sample_params:
+            in_channels: *encoder_stage3_mix_oc
+            mid_channels:
+            out_channels: &encoder_stage3_ds_oc 256
+            mode: down_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+    mid_layer:
+      in_channels: *encoder_stage3_ds_oc
+      mid_channels:
+        - 256
+      out_channels: &mid_layer_oc 256
+      activation:
+            name: dyt
+            parameters:
+              normalized_shape: *mid_layer_oc
+              channels_last: false
+              alpha_init_value: 0.5
+    decoder:
+      stage3:
+        mix:
+          attn_block_params:
+            in_channels: *mid_layer_oc
+            mid_channels: 256
+            bias: bool = True
+          mlp_params:
+            in_channels: *mid_layer_oc
+            mid_channels: 256
+            bias: bool = True
+          up_sample_params:
+            in_channels: *mid_layer_oc
+            mid_channels:
+            out_channels: &decoder_stage3_mix_oc 256
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        up:
+          attn_block_params:
+            in_channels: *decoder_stage3_mix_oc
+            mid_channels: 256
+            bias: bool = True
+          mlp_params:
+            in_channels: *decoder_stage3_mix_oc
+            mid_channels: 256
+            bias: bool = True
+          up_sample_params:
+            in_channels: *decoder_stage3_mix_oc
+            mid_channels:
+            out_channels: &decoder_stage3_ds_oc 128
+            mode: up_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage2:
+        mix:
+          attn_block_params:
+            in_channels: !math_add [*decoder_stage3_ds_oc, *encoder_stage2_ds_oc]
+            mid_channels: 128
+            bias: bool = True
+          mlp_params:
+            in_channels: !math_add [*decoder_stage3_ds_oc, *encoder_stage2_ds_oc]
+            mid_channels: 128
+            bias: bool = True
+          up_sample_params:
+            in_channels: !math_add [*decoder_stage3_ds_oc, *encoder_stage2_ds_oc]
+            mid_channels:
+            out_channels: &decoder_stage2_mix_oc 128
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        up:
+          attn_block_params:
+            in_channels: *decoder_stage2_mix_oc
+            mid_channels: 256
+            bias: bool = True
+          mlp_params:
+            in_channels: *decoder_stage2_mix_oc
+            mid_channels: 256
+            bias: bool = True
+          up_sample_params:
+            in_channels: *decoder_stage2_mix_oc
+            mid_channels:
+            out_channels: &decoder_stage2_ds_oc 64
+            mode: up_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage1:
+        mix:
+          attn_block_params:
+            in_channels: !math_add [*decoder_stage2_ds_oc, *encoder_stage1_ds_oc]
+            mid_channels: 64
+            bias: bool = True
+          mlp_params:
+            in_channels: !math_add [*decoder_stage2_ds_oc, *encoder_stage1_ds_oc]
+            mid_channels: 64
+            bias: bool = True
+          up_sample_params:
+            in_channels: !math_add [*decoder_stage2_ds_oc, *encoder_stage1_ds_oc]
+            mid_channels:
+            out_channels: &decoder_stage1_mix_oc 64
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        up:
+          attn_block_params:
+            in_channels: *decoder_stage1_mix_oc
+            mid_channels: 64
+            bias: bool = True
+          mlp_params:
+            in_channels: *decoder_stage1_mix_oc
+            mid_channels: 64
+            bias: bool = True
+          up_sample_params:
+            in_channels: *decoder_stage1_mix_oc
+            mid_channels:
+            out_channels: &decoder_stage1_ds_oc 32
+            mode: up_sample
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+      stage0:
+        mix:
+          attn_block_params:
+            in_channels: !math_add [*decoder_stage1_ds_oc, *encoder_stage0_ds_oc]
+            mid_channels: 32
+            bias: bool = True
+          mlp_params:
+            in_channels: !math_add [*decoder_stage1_ds_oc, *encoder_stage0_ds_oc]
+            mid_channels: 32
+            bias: bool = True
+          up_sample_params:
+            in_channels: !math_add [*decoder_stage1_ds_oc, *encoder_stage0_ds_oc]
+            mid_channels:
+            out_channels: &decoder_stage0_mix_oc 32
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+        up:
+          attn_block_params:
+            in_channels: *decoder_stage0_mix_oc
+            mid_channels: 32
+            bias: bool = True
+          mlp_params:
+            in_channels: *decoder_stage0_mix_oc
+            mid_channels: 32
+            bias: bool = True
+          up_sample_params:
+            in_channels: *decoder_stage0_mix_oc
+            mid_channels:
+            out_channels: &decoder_stage0_ds_oc 16
+            mode: keep_resolution
+            activation:
+            bias: true
+            pre_activation: false
+            output_activation_disable: false
+            in_front: false
+            disable: false
+    heads:
+      head_denoise:
+        in_channels: *decoder_stage0_ds_oc
+        mid_channels:
+        out_channels: 5
+        activation:
+            name: dyt
+            parameters:
+              normalized_shape: *decoder_stage0_ds_oc
+              channels_last: false
+              alpha_init_value: 0.5
+        pre_activation: true
+        output_activation_disable: True

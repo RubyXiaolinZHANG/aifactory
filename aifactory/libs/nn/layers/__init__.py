@@ -1,12 +1,5 @@
 import torch
+from .activations import ACTIVATIONS, get_activation_by_name
 
+__all__ = ["ACTIVATIONS", "get_activation_by_name", "DynamicTanh", "DynamicErf"]
 
-ACTIVATIONS = {"relu": torch.nn.ReLU,
-               "leaky_relu": torch.nn.LeakyReLU,
-               "prelu": torch.nn.PReLU,
-               "softmax": torch.nn.Softmax,
-               "sigmoid": torch.nn.Sigmoid,
-               "silu": torch.nn.Sigmoid}
-
-
-__all__ = ["ACTIVATIONS"]

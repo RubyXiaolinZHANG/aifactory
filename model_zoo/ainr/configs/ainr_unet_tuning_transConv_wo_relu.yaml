@@ -1,10 +1,11 @@
 task: &task F3_AINR_Tuning_Unet_Crop
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/unet_transConv_wo_relu_20260304_FT
+# save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/unet_transConv_wo_relu_20260303
 device: cuda
 workers: 0
 dtype: torch.float32
 
-model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet.yaml
+model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet_transConv_wo_relu.yaml
 
 database:
   train:
@@ -98,7 +99,7 @@ database:
 
 train:
   iters: 200000  # 00
-  ckpt:
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/unet_transConv_wo_relu_20260303_break/train/ckpt/AinrUnetWithParamTuning_00007000.pth
   path:  !join_path [*save_root, "train"]
   evaluate_before_train: false
   losses:
@@ -193,13 +194,12 @@ eval:
     save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302/train/ckpt/AinrUnetWithParamTuning_00018000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00018000"]
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/unet_transConv_wo_relu_20260304_FT/train/ckpt/AinrUnetWithParamTuning_00048000.pth
+  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00048000"]
 
 log:
   project_name: *task
-  experiment_name: ainr_tuningUnet_baseline_crop # !join_string [*model_name, "_tuning_crop"]
-  # experiment_name: ainr_unet_transConv_wo_relu
+  experiment_name: ainr_unet_transConv_wo_relu
   config:
   log_dir: !join_path [*save_root, "train", "log"]
   use_trackio: true

@@ -1,0 +1,28 @@
+
+name: CnnTransformerDecoder
+input_shapes:
+  present: [1, 3, 256, 256]
+parameters:
+  activation: &default_activation
+    name: gelu
+    parameters:
+  arch:
+    attn_block_params:
+      in_channels: &ic 3
+      mid_channels: 16
+      bias: bool = True
+    mlp_params:
+      in_channels: *ic
+      mid_channels: 16
+      bias: bool = True
+    down_sample_params:
+      in_channels: *ic
+      mid_channels:
+      out_channels: &ds_oc 16
+      mode: down_sample
+      activation:
+      bias: true
+      pre_activation: false
+      output_activation_disable: false
+      in_front: false
+      disable: false

@@ -1,0 +1,64 @@
+
+name: AinrUnetWithParamTuning
+input_shapes:
+  present: [1, 1, 3008, 4000]
+  previous: [1, 1, 3008, 4000]
+parameters:
+  activation: &default_activation
+    name: relu
+    parameters:
+  arch:
+    adaptor:
+      in_channels: 8
+      mid_channels:
+        - 8
+      out_channels: &adaptor_oc 8
+      activation: *default_activation
+    encoder:
+      stage_0:
+        in_channels: *adaptor_oc
+        mid_channels:
+          - 16
+        out_channels: &encoder_stage_0_oc 16
+        activation: *default_activation
+      stage_1:
+        in_channels: *encoder_stage_0_oc
+        mid_channels:
+          - 16
+        out_channels: &encoder_stage_1_oc 16
+        activation: *default_activation
+      stage_2:
+        in_channels: *encoder_stage_1_oc
+        mid_channels:
+          - 32
+        out_channels: &encoder_stage_2_oc 32
+        activation: *default_activation
+    mid_layer:
+    decoder:
+      decoder_stage_2:
+        in_channels: *encoder_stage_2_oc
+        mid_channels:
+          - 32
+        out_channels: &decoder_stage_2_oc 16
+        activation: *default_activation
+        output_activation_disable: true
+      decoder_stage_1:
+        in_channels: !math_add [*encoder_stage_1_oc, *decoder_stage_2_oc]
+        mid_channels:
+          - 16
+        out_channels: &decoder_stage_1_oc 8
+        activation: *default_activation
+      decoder_stage_0:
+        in_channels: !math_add [*encoder_stage_0_oc, *decoder_stage_1_oc]
+        mid_channels:
+          - 16
+        out_channels: &decoder_stage_0_oc 8
+        activation: *default_activation
+    heads:
+      head_denoise:
+        in_channels: !math_add [*adaptor_oc, *decoder_stage_0_oc]
+        mid_channels:
+          - 8
+        out_channels: 5
+        activation: *default_activation
+        output_activation_disable: True

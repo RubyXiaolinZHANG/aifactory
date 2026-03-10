@@ -1,27 +1,111 @@
-task: &task F3_AINR_Tuning_Unet_Crop
-save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302
+task: &task F3_AINR_Unet
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/20260128
+# path: !join [*save_root, "/train"]
 device: cuda
 workers: 0
 dtype: torch.float32
 
-model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_unet.yaml
+model:
+  name: &model_name AinrUnet
+  input_shapes:
+    present: [1, 1, 3008, 4000]
+    previous: [1, 1, 3008, 4000]
+  parameters:
+    activation: &default_activation
+      name: relu
+      parameters:
+    arch:
+      adaptor:
+        input_channel: 8
+        mid_channels:
+          - 8
+        output_channel: &adaptor_oc 8
+        activation: *default_activation
+        output_activation_disable: True
+      encoder:
+        stage_0:
+          input_channel: *adaptor_oc
+          mid_channels:
+            - 16
+          output_channel: &encoder_stage_0_oc 16
+          activation: *default_activation
+          pre_activation: true
+        stage_1:
+          input_channel: *encoder_stage_0_oc
+          mid_channels:
+            - 16
+          output_channel: &encoder_stage_1_oc 16
+          activation: *default_activation
+          pre_activation: true
+        stage_2:
+          input_channel: *encoder_stage_1_oc
+          mid_channels:
+          output_channel: &encoder_stage_2_oc 32
+          activation: *default_activation
+          pre_activation: true
+      mid_layer:
+        input_channel:
+        mid_channels:
+        output_channel:
+        activation: *default_activation
+#        act:
+#          input_channel:
+#          mid_channels:
+#          output_channel:
+#          activation: *default_activation
+      decoder:
+        decoder_stage_2:
+          input_channel: *encoder_stage_2_oc
+          mid_channels:
+            - 32
+          output_channel: &decoder_stage_2_oc 16
+          activation: *default_activation
+          # pre_activation: true
+          output_activation_disable: true
+        decoder_stage_1:
+          input_channel: !math_add [*encoder_stage_1_oc, *decoder_stage_2_oc]
+          mid_channels:
+            - 16
+          output_channel: &decoder_stage_1_oc 8
+          activation: *default_activation
+          # pre_activation: true
+          output_activation_disable: true
+        decoder_stage_0:
+          input_channel: !math_add [*encoder_stage_0_oc, *decoder_stage_1_oc]
+          mid_channels:
+            - 16
+          output_channel: &decoder_stage_0_oc 8
+          activation: *default_activation
+          # pre_activation: true
+          output_activation_disable: true
+      heads:
+        head_denoise:
+          input_channel: !math_add [*adaptor_oc, *decoder_stage_0_oc]
+          mid_channels:
+            - 8
+          output_channel: 5
+          activation: *default_activation
+          output_activation_disable: true
+#        head_jdd:
+#          input_channel: !math_add [*adaptor_oc, *decoder_stage_0_oc]
+#          mid_channels:
+#            - 8
+#          output_channel: 4
+#          activation: *default_activation
+
 
 database:
   train:
     vimeo:
       name: vimeo
       enable: true
-      batch_size: 8
+      batch_size: 16
       shuffle: true
       dataset: DatasetVimeo2Raw
       parameters:
         paths:
           - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
         cam: O2S
-        cvt_bits: 16
-        crop:
-          height: 256
-          width: 256
         frame_num: 7
         # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
     control:
@@ -31,7 +115,7 @@ database:
   eval:
     vimeo_iso-800:
       name: vimeo_iso-800
-      enable: false
+      enable: true
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -40,13 +124,12 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
-        cvt_bits: 16
         frame_num: 3
         iso: 800
         fix_sequence: true
     vimeo_iso-1600:
       name: vimeo_iso-1600
-      enable: false
+      enable: true
       batch_size: 16
       shuffle: false
       dataset: DatasetVimeo2Raw
@@ -55,7 +138,6 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
-        cvt_bits: 16
         frame_num: 3
         iso: 1600
         fix_sequence: true
@@ -70,7 +152,6 @@ database:
           # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
           - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
         cam: O2S
-        cvt_bits: 16
         frame_num: 3
         iso: 3200
         fix_sequence: true
@@ -81,29 +162,21 @@ database:
   test:
     o2s:
       name: o2s
-      cam: O2S
       enable: true
-      frame_num: 5
-      database_loader: read_raw_from_folders
-      parameters:
-        paths:
-          - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N10103_250414_01_O2S_OVX9100_Portrait
-          # - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N20103_250414_01_O2S_OVX9100_Portrait
-
+      path:
+        - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/
     control:
       name: control
       enable: false
-      frame_num: 5
-      database_loader: generate_control_scene_raw
 
 train:
-  iters: 200000  # 00
+  iters: 100000  # 00
   ckpt:
   path:  !join_path [*save_root, "train"]
   evaluate_before_train: false
   losses:
     mse:
-      enable: false
+      enable: true
       at_iter:
         start: 0
         end:
@@ -139,7 +212,7 @@ train:
         enable: true
         weight: 0.3
     gradient:
-      enable: false
+      enable: true
       at_iter:
         start: 30000
         end:
@@ -150,7 +223,7 @@ train:
   optimizer:
     name: AdamW
     params:
-      lr: 0.0001
+      lr: 0.001
       betas:
         - 0.9
         - 0.999
@@ -168,7 +241,7 @@ train:
     frames: 3
 
 eval:
-  ckpt: 
+  ckpt: H:/_result/ai_factory/model_zoo/ainr/20260123/train/ckpt/AinrUnet_00015400.pth
   path:  !join_path [*save_root, "eval"]
   metrics:
     psnr:
@@ -190,16 +263,14 @@ eval:
     enable: true
     save2local: true
     save2db: false
-    save_ratio: 0.1
 
 infer:
-  ckpt: H:/_result/ai_factory/model_zoo/ainr/baseline_tuning_20260302/train/ckpt/AinrUnetWithParamTuning_00018000.pth
-  path:  !join_path [*save_root, "infer", "AinrUnetWithParamTuning_00018000"]
+  ckpt:
+  path:  !join_path [*save_root, "infer"]
 
 log:
   project_name: *task
-  experiment_name: ainr_tuningUnet_baseline_crop # !join_string [*model_name, "_tuning_crop"]
-  # experiment_name: ainr_unet_transConv_wo_relu
+  experiment_name: !join_string [*model_name, "_baseline"]
   config:
   log_dir: !join_path [*save_root, "train", "log"]
   use_trackio: true

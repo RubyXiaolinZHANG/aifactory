@@ -4,10 +4,13 @@ from typing import Union
 
 @dataclass
 class BasicBlockParameters:
-    input_channel: int
+    in_channels: int | None
     mid_channels: list | tuple | None
-    output_channel: int
+    out_channels: int | None
     activation: dict | None
+    bias: bool = True
+    pre_activation: bool = False
+    output_activation_disable: bool = False
 
 
 def from_dict(cls, data):
