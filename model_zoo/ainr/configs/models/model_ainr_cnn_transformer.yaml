@@ -1,14 +1,15 @@
 
-name: AinrCnnTransformer
+name: AinrUnetTransformer
 input_shapes:
-  present: [1, 3, 256, 256]
+  present: [1, 1, 3008, 4000]
+  previous: [1, 1, 3008, 4000]
 parameters:
   arch:
     encoder:
       stage_0:
         adaptor:
           self_attn_block_params:
-            in_channels: &ic 3
+            in_channels: &ic 8
             mid_channels: 16
             bias: bool = True
           mlp_params:

@@ -1,0 +1,207 @@
+task: &task F3_AINR_Unet_Transformer_Crop
+save_root: &save_root H:/_result/ai_factory/model_zoo/ainr/unet_transformer_20260311
+device: cuda
+workers: 0
+dtype: torch.float32
+
+model: !include D:/Program/ToGit/xiaomi/aifactory/model_zoo/ainr/configs/models/model_ainr_cnn_transformer.yaml
+
+database:
+  train:
+    vimeo:
+      name: vimeo
+      enable: true
+      batch_size: 8
+      shuffle: true
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          - F:/database/vimeo_png/datasets/vimeo_train_sn-51769.yaml
+        cam: O2S
+        cvt_bits: 16
+        crop:
+          height: 256
+          width: 256
+        frame_num: 7
+        # record_bad_data: F:/database/vimeo_png/datasets/vimeo_train_sn-47062_bad_data.yaml
+    control:
+      name: control
+      enable: false
+      batch_size: 4
+  eval:
+    vimeo_iso-800:
+      name: vimeo_iso-800
+      enable: false
+      batch_size: 16
+      shuffle: false
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
+        cam: O2S
+        cvt_bits: 16
+        frame_num: 3
+        iso: 800
+        fix_sequence: true
+    vimeo_iso-1600:
+      name: vimeo_iso-1600
+      enable: false
+      batch_size: 16
+      shuffle: false
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
+        cam: O2S
+        cvt_bits: 16
+        frame_num: 3
+        iso: 1600
+        fix_sequence: true
+    vimeo_iso-3200:
+      name: vimeo_iso-3200
+      enable: true
+      batch_size: 16
+      shuffle: false
+      dataset: DatasetVimeo2Raw
+      parameters:
+        paths:
+          # - F:/database/vimeo_png/datasets/vimeo_val_sn-200.yaml
+          - F:/database/vimeo_png/datasets/vimeo_val_sn-523.yaml
+        cam: O2S
+        cvt_bits: 16
+        frame_num: 3
+        iso: 3200
+        fix_sequence: true
+    control:
+      name: control
+      enable: false
+      batch_size: 4
+  test:
+    o2s:
+      name: o2s
+      cam: O2S
+      enable: true
+      frame_num: 5
+      database_loader: read_raw_from_folders
+      parameters:
+        paths:
+          - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N10103_250414_01_O2S_OVX9100_Portrait
+          # - F:/database/AINR_V600/TestData/O2S/normal_video/O2S/raw10/N20103_250414_01_O2S_OVX9100_Portrait
+
+    control:
+      name: control
+      enable: false
+      frame_num: 5
+      database_loader: generate_control_scene_raw
+
+train:
+  iters: 200000  # 00
+  ckpt:
+  path:  !join_path [*save_root, "train"]
+  evaluate_before_train: false
+  losses:
+    mse:
+      enable: false
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    pixel_l1:
+      enable: true
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    channel_l1:
+      enable: false
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    smooth_l1:
+      enable: false
+      at_iter:
+        start: 0
+        end:
+      weight: 1.0
+      denoise:
+        enable: true
+        weight: 0.3
+    gradient:
+      enable: false
+      at_iter:
+        start: 30000
+        end:
+      weight: 1.0
+      params:
+        magnitude_weight: 1.0
+        phase_weight: 0.5
+  optimizer:
+    name: AdamW
+    params:
+      lr: 0.0001
+      betas:
+        - 0.9
+        - 0.999
+      eps: 1e-08
+      weight_decay: 0.01
+      amsgrad: false
+  intervals:
+    log: 10
+    save: 1000
+  vis:
+    enable: true
+    save2local: true
+    save2db: false
+    sample_per_db: 4
+    frames: 3
+
+eval:
+  ckpt: 
+  path:  !join_path [*save_root, "eval"]
+  metrics:
+    psnr:
+      enable: true
+      params:
+        dim: [1,2,3]
+    pixel_l1:
+      enable: true
+      params:
+        dim: [1,2,3]
+    channel_l1:
+      enable: true
+      params:
+        dim: [2,3]
+  dominate_metrics: psnr
+  intervals:
+    log: 10
+  vis:
+    enable: true
+    save2local: true
+    save2db: false
+    save_ratio: 0.1
+
+infer:
+  ckpt: 
+  path:  !join_path [*save_root, "infer", "init"]
+
+log:
+  project_name: *task
+  experiment_name: ainr_tuningUnet_baseline_crop # !join_string [*model_name, "_tuning_crop"]
+  # experiment_name: ainr_unet_transConv_wo_relu
+  config:
+  log_dir: !join_path [*save_root, "train", "log"]
+  use_trackio: true
+  space_id:
+  resume: never

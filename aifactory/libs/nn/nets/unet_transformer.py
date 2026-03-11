@@ -288,7 +288,7 @@ def test_transformer_unet(x):
     unet = CnnTransformerUnet(unet_arc_parameters)
 
     y = unet(x)
-    summary(unet, input_data=x)
+    summary(unet, input_data=x, depth=6)
 
     print("x:\tshape={}\tmin={}\tmax={}".format(x.shape, x.min(), x.max()))
     print("y:\tshape={}\tmin={}\tmax={}\tmean={}\tstd={}".format(y[0].shape, y[0].min(), y[0].max(), y[0].mean(), y[0].std()))
