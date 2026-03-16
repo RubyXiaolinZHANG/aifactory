@@ -14,7 +14,7 @@ class AinrInference(BasicInference):
     _frame_sequence = None
 
     def __init__(self, model, ckpt=None, device=torch.device("cpu"), log=None, **kwargs):
-        super().__init__(model, ckpt, devic=device, log=log, **kwargs)
+        super().__init__(model, ckpt, device=device, log=log, **kwargs)
 
     # def __call__(self, *args, **kwargs):
     #     if kwargs.get('work_mode')=="deploy":
@@ -33,16 +33,12 @@ class AinrInference(BasicInference):
         self._log.error("export onnx of {} is not ready".format(self.__class__.__name__))
 
     def run(self,  *args, **kwargs):
-        if kwargs.get('work_mode')=="deploy":
-            return self.deploy(*args, **kwargs)
-        else:
-            self._log.error("Unrecognized work mode. Stop inference.")
-            return None
-        # self.parse_data( *args, **kwargs)
-        # self.preprocess()
-        # self.model_infer()
-        # self.postprocess(enable_raw2bgr=True)
-        return #
+        with torch.no_grad():
+            if kwargs.get('work_mode')=="deploy":
+                return self.deploy(*args, **kwargs)
+            else:
+                self._log.error("Unrecognized work mode. Stop inference.")
+                return None
 
     def run_oneshot(self, *args, **kwargs):
         self.parse_data(*args, **kwargs)

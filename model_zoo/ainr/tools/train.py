@@ -22,9 +22,13 @@ def parse_arg():
                         #default="../configs/AINR_Unet_Baseline.yaml",
                         # default="../configs/AINR_Ex.yaml",
                         # default="../configs/anir_dev.yaml",
+                        # default="../configs/ainr_unet_tuning.yaml",
+                        # default="../configs/ainr_unet_tuning_x2.yaml",
                         # default="../configs/ainr_unet_tuning_ex.yaml",
-                        default="../configs/ainr_unet_tuning_baseline.yaml",
+                        # default="../configs/ainr_unet_tuning_baseline.yaml",
                         # default="../configs/ainr_unet_tuning_transConv_wo_relu.yaml",
+                        # default="../configs/ainr_unet_transformer.yaml",
+                        default="../configs/ainr_unet_transformer_1t.yaml",
                         help="path to database")
     return parser.parse_args()
 

@@ -160,7 +160,7 @@ class PipelineOperator:
                     raise ValueError(
                         "model inputs should be dict, list, tuple or tensor, but the given inputs is {}".format(
                             type(model_inputs)))
-                os.makedirs(os.path.dirname(export_onnx))
+                os.makedirs(os.path.dirname(export_onnx),exist_ok=True)
                 torch.onnx.export(self._model, model_inputs, export_onnx, input_names=model_input_names)
                 onnx.save(onnx.shape_inference.infer_shapes(onnx.load_model(export_onnx)), export_onnx)
             else:

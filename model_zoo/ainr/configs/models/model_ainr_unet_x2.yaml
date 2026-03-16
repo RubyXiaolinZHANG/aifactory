@@ -8,7 +8,7 @@ parameters:
     name: relu
     parameters:
   arch:
-    width_scale: &width_scale 1
+    width_scale: &width_scale 2
     adaptor:
       in_channels: 8
       mid_channels:

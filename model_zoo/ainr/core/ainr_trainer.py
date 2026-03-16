@@ -351,9 +351,10 @@ class AinrTrainer(BasicTrainer, AinrInference):
                 if "noise" not in self._datas[db_name]:
                     self._datas[db_name]["noise"] = []
                 self._datas[db_name]["noise"].append(frames['net_outputs']['noise'][start_id:end_id])
-                if "fusion_mask" not in self._datas[db_name]:
-                    self._datas[db_name]["fusion_mask"] = []
-                self._datas[db_name]["fusion_mask"].append(frames['net_outputs']['fusion_mask'][start_id:end_id])
+                if 'fusion_mask' in frames['net_outputs']:
+                    if "fusion_mask" not in self._datas[db_name]:
+                        self._datas[db_name]["fusion_mask"] = []
+                    self._datas[db_name]["fusion_mask"].append(frames['net_outputs']['fusion_mask'][start_id:end_id])
                 if "sensor_raw_denoise" not in self._datas[db_name]:
                     self._datas[db_name]["sensor_raw_denoise"] = []
                 self._datas[db_name]["sensor_raw_denoise"].append(frames['sensor_raw_denoise'][start_id:end_id])

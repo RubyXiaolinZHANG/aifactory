@@ -1,8 +1,8 @@
 
 name: AinrUnetTransformer
 input_shapes:
-  present: [1, 1, 3008, 4000]
-  previous: [1, 1, 3008, 4000]
+  present: [1, 1, 256, 256]
+  previous: [1, 1, 256, 256]
 parameters:
   arch:
     encoder:

@@ -72,7 +72,10 @@ class CnnTransformerAttentionBlock(torch.nn.Module):
         return self._out_channels
 
     def forward(self, x):
-        projections = self.kqv_projection(x)
+        try:
+            projections = self.kqv_projection(x)
+        except:
+            print("PPPPPPPPPPPPPPPPPPPPPP")
         q = projections[:, :self._mid_channels, :, :]
         k = projections[:, self._mid_channels:self._mid_channels * 2, :, :]
         v = projections[:, self._mid_channels * 2:, :, :]
@@ -302,7 +305,7 @@ class CnnTransformerDecoderBlock(torch.nn.Module):
             self._up_sample_in_front = up_sample_params.in_front
         # init input normalizer
         if self._up_sample_in_front:
-            self.pre_attn_norm = torch.nn.InstanceNorm2d(up_sample_params.in_channels)
+            self.pre_attn_norm = torch.nn.InstanceNorm2d(up_sample_params.out_channels)
         else:
             self.pre_attn_norm = torch.nn.InstanceNorm2d(mlp_params.in_channels)
         # init self attention block
@@ -340,11 +343,8 @@ class CnnTransformerDecoderBlock(torch.nn.Module):
         if self.self_attn is None:
             attn_norm = x_norm
         else:
-            try:
-                attn, _= self.self_attn(x_norm)
-                attn_norm = self.post_attn_norm(attn)
-            except:
-                print("**************************")
+            attn, _= self.self_attn(x_norm)
+            attn_norm = self.post_attn_norm(attn)
         # cross attention
         if self.cross_attn is not None:
             attn = self.cross_attn(attn_norm, k, v)
